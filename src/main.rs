@@ -91,6 +91,9 @@ struct Node {
     delivery_log: Option<PathBuf>,
     #[arg(long, default_value_t = DEFAULT_WINDOW)]
     receive_window: usize,
+    /// 比較用にアプリ配送時刻・sequence・本文fingerprintをJSONLへ記録する。
+    #[arg(long)]
+    receipt_log: Option<PathBuf>,
 }
 
 impl Node {
@@ -103,6 +106,7 @@ impl Node {
             ready: self.ready,
             delivery_log: self.delivery_log,
             receive_window: self.receive_window,
+            receipt_log: self.receipt_log,
         })
     }
 }

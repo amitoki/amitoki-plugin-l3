@@ -1,5 +1,16 @@
-//! 両方式で共通の、送信予定数を分母にした期限内ACKの集計。
+//! ベンチマークの配送数・遅延・プロセス資源を集計する。
 use serde::Serialize;
+
+pub(crate) fn process_usage() -> serde_json::Value {
+    let mut usage = std::mem::MaybeUninit::<libc::rusage>::uninit();
+    // SAFETY: getrusageが成功した場合だけ初期化済みの構造体を読む。
+    if unsafe { libc::getrusage(libc::RUSAGE_SELF, usage.as_mut_ptr()) } != 0 {
+        return serde_json::Value::Null;
+    }
+    let usage = unsafe { usage.assume_init() };
+    serde_json::json!({"user_us":usage.ru_utime.tv_sec * 1_000_000 + usage.ru_utime.tv_usec,
+        "system_us":usage.ru_stime.tv_sec * 1_000_000 + usage.ru_stime.tv_usec,"max_rss_kib":usage.ru_maxrss})
+}
 
 #[derive(Default, Serialize)]
 pub(crate) struct TrafficMetrics {

@@ -116,7 +116,7 @@ pub fn run_reliable_benchmark(options: Benchmark, reliable: ReliableOptions) -> 
         })
         .collect();
     let complete = channels.iter().enumerate().all(|(index, channel)| channel.metrics.acknowledged == counts[index]);
-    report["reliable_benchmark"] = serde_json::json!({ "complete": complete, "elapsed_us": network.clock.now() - start,
+    report["reliable_benchmark"] = serde_json::json!({ "complete": complete, "start_us": start, "elapsed_us": network.clock.now() - start,
         "timeout_us": reliable.timeout_us, "channels": reports });
     write_json(&options.output, &report)?;
     if complete {

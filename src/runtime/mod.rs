@@ -220,6 +220,7 @@ impl Network {
             "clock_domain": self.clock.domain,
             "clock_simulation": self.clock.simulation(),
             "clock_sync": self.synchronization.report(self.clock.now()),
+            "process_usage": crate::measurement::process_usage(),
             "network": self.metrics,
             "queues": queues
         })

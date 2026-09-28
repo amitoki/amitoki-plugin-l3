@@ -19,3 +19,7 @@ path = "src/main.rs"
 [[bin]]
 name = "amitoki-l3-udp"
 path = "src/udp_main.rs"
+
+[[bin]]
+name = "amitoki-l3-tcp"
+path = "src/tcp_main.rs"

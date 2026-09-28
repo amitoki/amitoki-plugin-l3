@@ -16,6 +16,7 @@ pub struct NodeOptions {
     pub ready: PathBuf,
     pub delivery_log: Option<PathBuf>,
     pub receive_window: usize,
+    pub receipt_log: Option<PathBuf>,
 }
 
 pub fn run_node(options: NodeOptions) -> io::Result<()> {
@@ -37,6 +38,7 @@ pub fn run_node(options: NodeOptions) -> io::Result<()> {
         .transpose()
         .map_err(io::Error::other)?;
     let mut delivery_log = options.delivery_log.map(std::fs::File::create).transpose()?.map(io::BufWriter::new);
+    let mut receipt_log = crate::receipt_log::ReceiptLog::open(options.receipt_log)?;
     let mut domain = network.time().map(|reading| reading.domain);
     let end = start + options.duration_us;
     let mut prune_at = start + PRUNE_INTERVAL_US;
@@ -59,6 +61,12 @@ pub fn run_node(options: NodeOptions) -> io::Result<()> {
                 if let Some(reliable) = &mut reliable {
                     let mut response = reliable.receive(&packet, network.clock.now());
                     while let Some(message) = reliable.take_delivery() {
+                        receipt_log.record(crate::receipt_log::Receipt {
+                            channel: message.channel,
+                            sequence: message.sequence,
+                            received_us: network.clock.now(),
+                            payload: &message.payload,
+                        })?;
                         if let Some(log) = &mut delivery_log {
                             serde_json::to_writer(&mut *log, &message).map_err(io::Error::other)?;
                             writeln!(log)?;
@@ -117,5 +125,6 @@ pub fn run_node(options: NodeOptions) -> io::Result<()> {
     if let Some(log) = &mut delivery_log {
         log.flush()?;
     }
+    receipt_log.finish()?;
     write_json(&options.output, &report)
 }
