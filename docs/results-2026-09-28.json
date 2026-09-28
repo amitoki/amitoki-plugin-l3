@@ -1449,5 +1449,45 @@
       "amitoki-l3": "3e8f88e98d46c61dede34ee08974493bad583270c8f621a278a808121674f823",
       "amitoki-l3-tcp": "938099003be9c7f70d3c4b00c61c67ab802477926844ee3b9f52b1ec89b26cbe"
     }
-  }
+  },
+  "final-local-clock": [
+    {
+      "workload": "mixed_10mbps",
+      "mode": "l3_unordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        13500
+      ],
+      "delivered": [
+        900,
+        13500
+      ],
+      "acknowledged": [
+        900,
+        13500
+      ],
+      "short_p99_us": {
+        "median": 69314,
+        "min": 69257,
+        "max": 69336
+      },
+      "bulk_p99_us": {
+        "median": 1780325,
+        "min": 1780115,
+        "max": 1783381
+      },
+      "goodput_mbps": {
+        "median": 9.070952507140369,
+        "min": 9.065123697625019,
+        "max": 9.071213504572281
+      },
+      "cpu_us_per_message": {
+        "median": 197.40854166666668,
+        "min": 196.46583333333334,
+        "max": 198.13979166666667
+      }
+    }
+  ]
 }
