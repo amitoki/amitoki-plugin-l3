@@ -6,50 +6,14 @@ import json
 import os
 from pathlib import Path
 import platform
-import signal
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
 
 from capture import Capture
+from processes import wait_ready, stop_processes
 from scenarios import SCENARIOS
 from topology import block_clock_replies, command, configure, configure_clocks, create_links, impair_primary, remove_links, restore_clock_replies
-
-# 起動はreadyファイルで確認する。この値は準備失敗の打切り上限。
-READY_TIMEOUT_SECONDS = 5
-PROCESS_TIMEOUT_SECONDS = 5
-
-
-def wait_ready(processes, directory, *, different_clocks=False):
-    deadline = time.monotonic() + READY_TIMEOUT_SECONDS
-    while time.monotonic() < deadline:
-        if any(process.poll() is not None for _, process in processes):
-            raise RuntimeError(f"ノードが起動前に終了しました: {directory}")
-        paths = [directory / f"{name}.ready.json" for name, _ in processes]
-        try:
-            ready = [json.loads(path.read_text()) for path in paths]
-        except (FileNotFoundError, json.JSONDecodeError):
-            time.sleep(0.01)
-            continue
-        if not different_clocks and len({entry["clock_domain"] for entry in ready}) != 1:
-            raise RuntimeError("時計ドメインが一致しません")
-        return
-    raise RuntimeError(f"ノードの準備待ちがタイムアウトしました: {directory}")
-
-
-def stop_processes(processes):
-    for _, process in processes:
-        if process.poll() is None:
-            process.send_signal(signal.SIGTERM)
-    for name, process in processes:
-        try:
-            code = process.wait(timeout=PROCESS_TIMEOUT_SECONDS)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait()
-            raise RuntimeError(f"{name}を通常終了できませんでした") from None
-        if code != 0:
-            raise RuntimeError(f"{name}がexit={code}で終了しました")
 
 
 def execute_scenario(arguments, scenario, directory):
@@ -75,7 +39,7 @@ def execute_scenario(arguments, scenario, directory):
             logs.append(log)
             processes.append((name, subprocess.Popen(invocation, stdout=log, stderr=subprocess.STDOUT)))
         wait_ready(processes, directory, different_clocks=scenario.clock_sync)
-        invocation = [arguments.binary, "bench", "--config", str(directory / "a.json"), "--peer", "2",
+        invocation = [arguments.binary, "bench", "--delivery", "deadline", "--config", str(directory / "a.json"), "--peer", "2",
                       "--duration-ms", str(arguments.duration_ms), "--bulk-rate", str(scenario.bulk_rate),
                       "--paths", scenario.paths, "--replica-bytes-per-second", str(scenario.replica_budget),
                       "--short-deadline-us", str(scenario.short_deadline_us), "--retries", str(scenario.retries),
@@ -192,6 +156,7 @@ def main():
     parser.add_argument("--directory", type=Path, required=True)
     parser.add_argument("--repetitions", type=int, default=3)
     parser.add_argument("--duration-ms", type=int, default=3000)
+    parser.add_argument("--suite", choices=("all", "deadline", "reliable"), default="all")
     arguments = parser.parse_args()
     if not 1 <= arguments.repetitions <= 10 or not 1000 <= arguments.duration_ms <= 30_000:
         parser.error("repetitionsは1〜10、duration-msは1000〜30000です")
@@ -201,7 +166,7 @@ def main():
     outcomes = []
     try:
         for repetition in range(1, arguments.repetitions + 1):
-            for scenario in SCENARIOS:
+            for scenario in SCENARIOS if arguments.suite != "reliable" else []:
                 directory = arguments.directory / f"{repetition:02d}-{scenario.name}"
                 outcome = execute_scenario(arguments, scenario, directory)
                 outcome["repetition"] = repetition
@@ -212,10 +177,13 @@ def main():
                 else:
                     traffic = outcome["reports"]["a"]["benchmark"]["short"]
                     print(f"{repetition}: {scenario.name}: 期限内ACK {traffic['on_time_ratio']:.1%}, p99={traffic['rtt_us']['p99']}µs", flush=True)
-        make_report(arguments.directory, outcomes)
+        if outcomes:
+            make_report(arguments.directory, outcomes)
+        from reliable import run_suite
+        reliable_runs = run_suite(arguments.binary, arguments.directory / "reliable") if arguments.suite != "deadline" else 0
         with Path(arguments.binary).open("rb") as executable:
             binary_sha256 = hashlib.file_digest(executable, "sha256").hexdigest()
-        verification = {"status":"passed", "runs":len(outcomes), "repetitions":arguments.repetitions,
+        verification = {"status":"passed", "runs":len(outcomes), "reliable_runs":reliable_runs, "repetitions":arguments.repetitions,
                         "duration_ms":arguments.duration_ms, "kernel":platform.release(), "machine":platform.machine(),
                         "ether_type":"0x88b5", "external_network":False, "link_ip_addresses":False,
                         "clock":"CLOCK_BOOTTIME; shared clock and four-timestamp synchronization with simulated offset/drift",

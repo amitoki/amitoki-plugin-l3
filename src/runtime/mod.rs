@@ -1,9 +1,11 @@
 mod client;
 mod node;
+mod reliable;
 pub(crate) mod shutdown;
 mod synchronization;
 pub use client::{run_benchmark, Benchmark};
 pub use node::{run_node, NodeOptions};
+pub use reliable::{run_reliable_benchmark, ReliableOptions};
 pub use shutdown::install_shutdown;
 
 use crate::{
@@ -21,6 +23,10 @@ use synchronization::Synchronization;
 // 一つの受信キューだけで他の経路と期限処理を飢餓させない。
 const RECEIVE_BURST: usize = 32;
 const TRANSMIT_BURST: usize = 8;
+
+fn random_session() -> u64 {
+    u64::from_be_bytes(uuid::Uuid::new_v4().as_bytes()[..8].try_into().expect("UUIDの先頭8バイト")).clamp(1, u64::MAX - 1)
+}
 
 #[derive(Default, Serialize)]
 pub struct NetworkMetrics {

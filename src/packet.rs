@@ -40,6 +40,11 @@ pub enum Kind {
     Grant = 4,
     SyncRequest = 5,
     SyncReply = 6,
+    ReliableOpen = 7,
+    ReliableReady = 8,
+    ReliableData = 9,
+    ReliableAck = 10,
+    ReliableReset = 11,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -118,6 +123,11 @@ impl Packet {
                 4 => Kind::Grant,
                 5 => Kind::SyncRequest,
                 6 => Kind::SyncReply,
+                7 => Kind::ReliableOpen,
+                8 => Kind::ReliableReady,
+                9 => Kind::ReliableData,
+                10 => Kind::ReliableAck,
+                11 => Kind::ReliableReset,
                 _ => return Err(PacketError("kind")),
             },
             class: match bytes[6] {
@@ -153,10 +163,10 @@ impl Packet {
         {
             return Err(PacketError("識別子/経路/hop/flags"));
         }
-        if self.payload.len() > MAX_PAYLOAD || (self.kind != Kind::Data && self.flags != 0) {
+        if self.payload.len() > MAX_PAYLOAD || (!self.is_data() && self.flags != 0) {
             return Err(PacketError("payload/flags"));
         }
-        if self.kind == Kind::Data && self.class == Class::Short && self.payload.len() > MAX_SHORT_PAYLOAD {
+        if self.is_data() && self.class == Class::Short && self.payload.len() > MAX_SHORT_PAYLOAD {
             return Err(PacketError("short payload長"));
         }
         if self.is_sync() && (self.class != Class::Short || self.credit != 0 || self.expires != 0) {
@@ -169,6 +179,9 @@ impl Packet {
             Kind::SyncReply if self.payload.len() != 24 => return Err(PacketError("時計応答長")),
             _ => {},
         }
+        if self.is_reliable() {
+            crate::delivery::wire::validate(self)?;
+        }
         Ok(())
     }
 
@@ -178,6 +191,17 @@ impl Packet {
 
     pub fn is_sync(&self) -> bool {
         matches!(self.kind, Kind::SyncRequest | Kind::SyncReply)
+    }
+
+    pub fn is_data(&self) -> bool {
+        matches!(self.kind, Kind::Data | Kind::ReliableData)
+    }
+
+    pub fn is_reliable(&self) -> bool {
+        matches!(
+            self.kind,
+            Kind::ReliableOpen | Kind::ReliableReady | Kind::ReliableData | Kind::ReliableAck | Kind::ReliableReset
+        )
     }
 
     pub fn wire_size(&self) -> usize {

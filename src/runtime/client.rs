@@ -394,7 +394,7 @@ pub fn run_benchmark(options: Benchmark) -> io::Result<()> {
     write_json(&options.output, &report)
 }
 
-fn validate(options: &Benchmark) -> Result<(), &'static str> {
+pub(super) fn validate(options: &Benchmark) -> Result<(), &'static str> {
     if options.peer == 0
         || options.peer == options.config.node
         || options.duration_us == 0

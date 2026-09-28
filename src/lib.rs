@@ -2,6 +2,7 @@
 pub mod clock;
 pub mod config;
 pub mod credit;
+pub mod delivery;
 #[cfg(target_os = "linux")]
 pub mod ethernet;
 pub mod packet;

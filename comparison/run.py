@@ -77,7 +77,7 @@ def run_case(environment, workload, transport):
     bench = ["docker", "exec", a, executable, "bench", *connections[0], "--duration-ms", str(duration),
              *arguments_for(workload), "--output", prefix + "/a.report.json"]
     if transport == "l3":
-        bench += ["--peer", "2", "--replica-bytes-per-second", "0", "--retries", "0"]
+        bench += ["--delivery", "deadline", "--peer", "2", "--replica-bytes-per-second", "0", "--retries", "0"]
     shape_udp(a, limited and transport == "udp")
     try:
         with (directory / "b.log").open("w") as log:

@@ -1,5 +1,5 @@
 use crate::{
-    packet::{Class, Kind, Packet},
+    packet::{Class, Packet},
     tokens::TokenBucket,
 };
 use serde::{Deserialize, Serialize};
@@ -128,7 +128,7 @@ impl Scheduler {
 }
 
 fn queue_class(packet: &Packet) -> usize {
-    if packet.kind != Kind::Data {
+    if !packet.is_data() {
         0
     } else if packet.class == Class::Short {
         1
