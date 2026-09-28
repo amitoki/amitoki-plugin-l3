@@ -7,3 +7,5 @@ __pycache__/
 .env*
 
 /l3-node.json
+/web/node_modules/
+/web/dist/

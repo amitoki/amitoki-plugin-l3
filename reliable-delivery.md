@@ -6,7 +6,7 @@
 
 ## CLIで試す
 
-[ネットワーク設定](README.md#ヘッダは64バイト経路は静的に指定する)の送信側を`a.json`、受信側を`b.json`として、ルーターを起動した環境で使う。raw socketを開く権限が必要。
+[ネットワーク設定](README.md#ヘッダは96バイト経路は静的に指定する)の送信側を`a.json`、受信側を`b.json`として、ルーターを起動した環境で使う。raw socketを開く権限が必要。
 
 ```bash
 # 受信側。delivery-logは任意。本文を含むので共有範囲に注意する。
@@ -57,11 +57,11 @@ ACKは現在の窓の先頭も伝える。窓の更新が失われた場合や�
 
 再送待ちは初期20msで、RTTを観測した後は2ms〜1秒へ調整する。再送ごとに待ち時間を倍増し、最大1秒に抑える。再送回数に固定上限はない。送信元で1回のDATAパケットの滞留期限を200msに設定し、各ルーターではその期限を延ばさない。期限切れのパケットを捨てても、送信側に保持した論理メッセージは次の再送で送れる。同期断の間も保持を続け、同じ時計世代で復帰すれば再送する。同期断の時間も配送timeoutに含む。
 
-固定の窓・受信レート・再送帯域枠・指数backoffを使う実験実装。TCPのような適応的な輻輳制御を実装したわけではなく、TCPより速いという測定結果もない。
+既定は固定の受信窓・受信レート・再送帯域枠・指数backoffを使う。[動的経路と混雑制御](docs/adaptive-fabric.md)は明示設定で有効にする。TCPより速いという結論は得ていない。
 
 ## ワイヤ形式
 
-共通ヘッダは64B、versionは1のまま。kindを追加した。旧実行ファイルは未知のkindを拒否するため、利用には全ノードの更新が必要。
+共通ヘッダは96B、versionは2。[拡張フィールド](README.md#ヘッダは96バイト経路は静的に指定する)を参照。旧実行ファイルは未知のkindを拒否するため、利用には全ノードの更新が必要。
 
 | kind | 値 | message | credit | 16Bの情報に続く本文 |
 |---|---:|---|---|---|
@@ -70,6 +70,8 @@ ACKは現在の窓の先頭も伝える。窓の更新が失われた場合や�
 | RELIABLE_DATA | 9 | channel内のsequence | 0 | アプリの本文 |
 | RELIABLE_ACK | 10 | 対象sequence | 受信窓の先頭 | 本文のfingerprint、8B |
 | RELIABLE_RESET | 11 | 要求から引き継ぐ | 0 | なし |
+| RELIABLE_TRIM | 12 | 対象sequence | 0 | 本文のfingerprint、8B |
+| RELIABLE_NACK | 13 | 対象sequence | 0 | 本文のfingerprint、8B |
 
 本文先頭の16Bは`channel:u32 / ordering:u8 / reserved:3B / epoch:u64`。整数はnetwork byte order、orderingは0がunordered・1がordered。epochは初回OPENだけ0、READYで受信側が発行し、以後は同じ値を使う。受信プロセスの起動ごとに乱数を使い、channelの再作成でも世代を更新する。classとorderingはchannel作成後に変更できない。
 
@@ -102,6 +104,6 @@ CLIレポートの`acknowledged`は受信受付数、`delivered`は受信側が�
 
 ## ACKと再送待ち
 
-信頼性配送のACK・READY・RESETは受付済みの事実を伝えるため、時計精度低下と絶対期限切れだけでは破棄しない。同じ時計世代かをNetworkが確認し、Channelがsource/destination/session/channel/epoch/fingerprintを検証する。各キューでは200msのローカル滞留上限とhop数を維持する。DATAとOPENの期限は引き続き厳密に確認する。
+信頼性配送のACK・READY・RESETは受付済みの事実を伝えるため、時計精度低下と絶対期限切れだけでは破棄しない。同じ時計世代かをNetworkが確認し、Channelがsource/destination/session/channel/epoch/fingerprintを検証する。各キューでは200msのローカル滞留上限とhop数を維持する。DATAとOPENの期限は既定で厳密に確認する。`fabric.clock_independent`ではローカル滞留制限を使う。
 
-再送待ちは初期20ms。未再送のACKから平滑化RTTと変動幅を計算し、2ms〜1秒へ調整する。再送時は指数backoffと共有予算を維持する。下位キューで拒否された場合は試行回数・期限・再送予算を進めない。`rtt_samples`、`smoothed_rtt_us`、`retry_timeout_us`、`admission_blocked`を送信レポートへ出す。
+再送待ちは初期20ms。送信時刻と経路を直近8試行に照合できたACKから平滑化RTTと変動幅を計算し、2ms〜1秒へ調整する。再送時は指数backoffと共有予算を維持する。下位キューで拒否された場合は試行回数・期限・再送予算を進めない。`rtt_samples`、`smoothed_rtt_us`、`retry_timeout_us`、`admission_blocked`を送信レポートへ出す。

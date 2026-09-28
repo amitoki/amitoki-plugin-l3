@@ -42,7 +42,7 @@ CIは上の短縮版でidle・mixed・lossを各4方式、計12試行する。�
 
 TCPは`TCP_NODELAY`を有効にし、Linux既定のsocket buffer・輻輳制御を使う。使用した輻輳制御名は送信側reportに記録する。アプリのフレームは16Bのヘッダと本文。受信アプリは本文fingerprintを含むACKを返す。TCP自体のACKとは別である。TCPの順序・streamの性質は[Linux tcp(7)](https://man7.org/linux/man-pages/man7/tcp.7.html)、損失・帯域設定は[tc-netem(8)](https://man7.org/linux/man-pages/man8/tc-netem.8.html)を参照。
 
-L3は64Bの共通ヘッダと16Bの信頼性配送prefixを使う。送信上限100MB/s、受信creditは両クラス100,000件/秒、その他は現行の既定値。送信待ちは両方式とも各クラス256件だが、L3の受信窓は64件、TCPはLinuxの窓・bufferを使う。L3は固定20msを起点とした再送待ちと30,000B/秒の再送予算、TCPはLinuxの再送・輻輳制御を使う。buffer、ACKの位置、再送戦略、ヘッダを含む実装全体の比較になる。
+L3は96Bの共通ヘッダと16Bの信頼性配送prefixを使う。送信上限100MB/s、受信creditは両クラス100,000件/秒、その他は現行の既定値。送信待ちは両方式とも各クラス256件だが、L3の受信窓は64件、TCPはLinuxの窓・bufferを使う。L3は固定20msを起点とした再送待ちと30,000B/秒の再送予算、TCPはLinuxの再送・輻輳制御を使う。buffer、ACKの位置、再送戦略、ヘッダを含む実装全体の比較になる。
 
 ## 数値の意味
 

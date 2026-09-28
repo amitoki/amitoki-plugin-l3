@@ -22,6 +22,8 @@ fn packet(message: u64) -> Packet {
         credit: 0,
         path: 1,
         flags: 0,
+        sent_at: 0,
+        signal: Default::default(),
         payload: vec![1, 2, 3],
     }
 }

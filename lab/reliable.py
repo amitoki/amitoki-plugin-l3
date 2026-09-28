@@ -63,7 +63,7 @@ def install_fault(scenario):
     if scenario.fault == "first":
         matches += ["match", "u32", "0", "0xffffffff", "at", "24",
                     "match", "u32", "1", "0xffffffff", "at", "28",
-                    "match", "u32", "1", "0xffffffff", "at", "64"]
+                    "match", "u32", "1", "0xffffffff", "at", "96"]
     command("tc", "filter", "add", "dev", interface, "egress", "protocol", "0x88b5", "u32", *matches, "action", "drop")
 
 

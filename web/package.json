@@ -1,0 +1,29 @@
+{
+  "name": "amitoki-l3-observer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "test": "node test-browser.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1",
+    "@types/node": "24.19.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "typescript": "7.0.2",
+    "vite": "8.3.1",
+    "prettier": "3.9.9",
+    "tailwindcss": "4.3.3",
+    "@tailwindcss/vite": "4.3.3"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  }
+}

@@ -464,7 +464,7 @@ fn a_full_lower_queue_does_not_start_the_retry_timer_or_consume_retry_budget() {
 }
 
 #[test]
-fn measured_rtt_shortens_retry_wait_but_ambiguous_retransmissions_do_not_change_the_estimate() {
+fn echoed_timestamps_measure_the_rtt_of_retransmissions() {
     let mut sender = channel(Ordering::Unordered, 1);
     let mut receiver = receiver(4);
     open(&mut sender, &mut receiver);
@@ -480,8 +480,8 @@ fn measured_rtt_shortens_retry_wait_but_ambiguous_retransmissions_do_not_change_
     assert_eq!(retry.message, first.message);
     let ack = receiver.receive(&retry, START + 2_400).unwrap();
     sender.receive(&ack, START + 2_500);
-    assert_eq!(sender.metrics.rtt_samples, 1);
-    assert_eq!(sender.metrics.smoothed_rtt_us, 250);
+    assert_eq!(sender.metrics.rtt_samples, 2);
+    assert_eq!(sender.metrics.smoothed_rtt_us, 243);
     assert_eq!(sender.pending(), 0);
 }
 

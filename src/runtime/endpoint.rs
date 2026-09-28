@@ -40,11 +40,10 @@ impl Endpoint {
             .map(|peer| {
                 let mut paths: Vec<_> = config.routes.iter().filter(|route| route.destination == *peer).map(|route| route.path).collect();
                 paths.sort_unstable();
-                paths.truncate(2);
                 (*peer, paths)
             })
             .collect();
-        if peers.is_empty() || routes.len() != peers.len() || routes.values().any(Vec::is_empty) {
+        if peers.is_empty() || routes.len() != peers.len() || routes.values().any(|paths| paths.is_empty() || paths.len() > crate::fabric::MAX_PATHS) {
             return Err(io::Error::other("peerが重複しているか、経路がありません"));
         }
         let network = Network::open(config)?;
@@ -76,6 +75,7 @@ impl Endpoint {
         let channel = self.channels.entry((peer, class)).or_insert_with(|| {
             Channel::new(ChannelOptions {
                 class,
+                fabric: self.network.fabric,
                 channel: class.index() as u32 + 1,
                 ordering: Ordering::Unordered,
                 paths: paths.clone(),
@@ -123,13 +123,14 @@ impl Endpoint {
         for channel in self.channels.values_mut() {
             let tick = SendTick {
                 now: self.network.clock.now(),
-                time: self.network.time(),
+                time: self.network.reliable_time(),
                 retry_budget: &mut self.retry_budget,
             };
             channel.transmit(tick, |packet| self.network.try_enqueue(packet));
         }
         self.receiver.prune(self.network.clock.now());
         self.network.flush()?;
+        self.network.observe(|| serde_json::json!(self.channels.values().map(Channel::report).collect::<Vec<_>>()));
         Ok(confirmed)
     }
 

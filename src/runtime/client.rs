@@ -92,6 +92,8 @@ impl Client {
             credit: 0,
             path: self.paths[0],
             flags: 0,
+            sent_at: 0,
+            signal: Default::default(),
             payload: Vec::new(),
         })
     }
@@ -284,6 +286,9 @@ struct Offer {
 }
 
 pub fn run_benchmark(options: Benchmark) -> io::Result<()> {
+    if options.paths.len() > 2 {
+        return Err(io::Error::other("deadlineモードの経路は最大2本です"));
+    }
     validate(&options).map_err(io::Error::other)?;
     let network = Network::open(options.config)?;
     let setup_start = network.clock.now();
@@ -412,12 +417,12 @@ pub(super) fn validate(options: &Benchmark) -> Result<(), &'static str> {
         return Err("payloadまたはdeadlineが範囲外です");
     }
     if options.paths.is_empty()
-        || options.paths.len() > 2
+        || options.paths.len() > crate::fabric::MAX_PATHS
         || options.paths.contains(&0)
-        || (options.paths.len() == 2 && options.paths[0] == options.paths[1])
+        || (options.paths.iter().collect::<std::collections::BTreeSet<_>>().len() != options.paths.len())
         || options.paths.iter().any(|path| !options.config.routes.iter().any(|route| route.destination == options.peer && route.path == *path))
     {
-        return Err("1〜2本の異なる、設定済み経路を指定してください");
+        return Err("1〜8本の異なる、設定済み経路を指定してください");
     }
     if options.replica_bytes_per_second > MAX_BYTES_PER_SECOND {
         return Err("複製帯域が範囲外です");

@@ -1,6 +1,6 @@
 # amitoki-plugin-l3
 
-amitokiのL3中継プラグインと、独自プロトコルの実験・比較環境。[プラグインの導入](docs/plugin.md)、[設計と次の用途](docs/design-direction.md)を参照する。
+amitokiのL3中継プラグインと、独自プロトコルの実験・比較環境。[動的経路・混雑通知・Web観測](docs/adaptive-fabric.md)、[プラグインの導入](docs/plugin.md)、[設計と次の用途](docs/design-direction.md)を参照する。
 
 Ethernetの直上に独自ヘッダを載せ、短文の優先転送、受信側による送信量の制限、期限切れの破棄、2経路への複製を比較する試作。IP・TCP・UDPは使わない。Linuxのraw socketを使う別実行ファイル `amitoki-l3` として実装している。
 
@@ -100,9 +100,9 @@ JSONの `benchmark.*.sent` は、有効な送信枠を消費して転送処理�
 
 配送履歴は最大8192件、発行済みGRANTは最大256件、GRANTあたり最大32枠。生存中の履歴を追い出さず、上限に達したら新規処理を拒否する。枠を使った記録はGRANTの期限まで保持し、配送履歴が期限切れになった後の再利用も拒否する。再起動するとこの状態は失われるため、再起動をまたぐ重複排除は保証しない。
 
-## ヘッダは64バイト、経路は静的に指定する
+## ヘッダは96バイト、経路は静的に指定する
 
-EtherTypeはLocal Experimentalの `0x88B5`、識別子は `AMTK`、プロトコルのversionは1。[RFC 9542](https://www.rfc-editor.org/rfc/rfc9542#section-3)の実験用割当を使う。同じEtherTypeの別実験とはmagicで区別する。整数はnetwork byte order。
+EtherTypeはLocal Experimentalの `0x88B5`、識別子は `AMTK`、プロトコルのversionは2。[RFC 9542](https://www.rfc-editor.org/rfc/rfc9542#section-3)の実験用割当を使う。同じEtherTypeの別実験とはmagicで区別する。整数はnetwork byte order。
 
 | オフセット | 長さ | フィールド |
 |---:|---:|---|
@@ -116,13 +116,17 @@ EtherTypeはLocal Experimentalの `0x88B5`、識別子は `AMTK`、プロトコ�
 | 32 / 40 | 各8 | 期限のµs / 時計ドメイン |
 | 48 | 8 | credit: 上位32bitはGRANT ID、下位32bitは枠番号または許可数 |
 | 56 | 2 | 本文の長さ |
-| 58 / 59 | 各1 | path / flags（bit0: 複製・再送） |
+| 58 / 59 | 各1 | path / flags（bit0: 複製・再送、bit1: 混雑通知、bit2: ローカル滞留制限） |
 | 60 | 2 | 予約領域、0固定 |
 | 62 | 2 | ヘッダと本文のone's complement checksum |
+| 64 | 8 | 試行ごとの送信時刻。ACK/NACKでechoする |
+| 72 | 8 | 空き帯域の推定B/s |
+| 80 / 84 | 各4 | 混雑ノードID / キュー待ちµs |
+| 88 | 8 | 混雑ノードの出口設定帯域B/s |
 
 ACKの本文は8バイトのFNV-1a fingerprint。REQUESTとGRANTには本文がない。checksumとfingerprintは破損検出・一致確認用で、送信元認証には使わない。
 
-信頼性配送はkind=7〜11を使い、本文先頭16バイトにchannel・順序指定・受信世代を載せる。旧実行ファイルはこれらを解釈できないため、信頼性配送ではルーターを含む全ノードを更新する。64バイトの共通ヘッダとdeadlineモードの形式は維持している。
+信頼性配送はkind=7〜13を使い、本文先頭16バイトにchannel・順序指定・受信世代を載せる。旧実行ファイルはこれらを解釈できないため、信頼性配送ではルーターを含む全ノードを更新する。deadlineモードも96バイトの共通ヘッダを使う。version 1とは互換性がない。
 
 時計はLinuxの `CLOCK_BOOTTIME`。`clock.authority`を全ノードに設定すると、独自L3の時刻交換で別VM・別マシンにも対応する。OS時計は変更しない。誤差が大きいときや同期の失効時は新しいDATA・OPENとdeadlineモードのACK・送信枠を止める。信頼性配送のACK・READY・RESETは同じ時計世代なら通し、session・受信epochを配送層で照合する。[時計同期の設計と設定](clock-sync.md)を参照。設定を省略した場合は同じboot ID・time namespaceの実験だけを許可する。期限が1秒を超えて先の通常パケットは拒否する。
 

@@ -5,6 +5,7 @@ pub mod credit;
 pub mod delivery;
 #[cfg(target_os = "linux")]
 pub mod ethernet;
+pub mod fabric;
 pub mod packet;
 #[cfg(target_os = "linux")]
 pub mod runtime;

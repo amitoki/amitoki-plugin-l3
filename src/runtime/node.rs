@@ -54,10 +54,6 @@ pub fn run_node(options: NodeOptions) -> io::Result<()> {
                 continue;
             }
             if packet.is_reliable() {
-                let time = network.time();
-                if !super::accept_data(&mut network.metrics, &packet, time) {
-                    continue;
-                }
                 if let Some(reliable) = &mut reliable {
                     let mut response = reliable.receive(&packet, network.clock.now());
                     while let Some(message) = reliable.take_delivery() {
@@ -112,6 +108,7 @@ pub fn run_node(options: NodeOptions) -> io::Result<()> {
             prune_at = now + PRUNE_INTERVAL_US;
         }
         network.flush()?;
+        network.observe(|| serde_json::json!([]));
         network.wait(prune_at.min(end))?;
     }
     let mut report = network.report();

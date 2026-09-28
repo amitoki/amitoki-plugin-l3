@@ -34,7 +34,8 @@ def main():
             routes[node].append(dict(destination=peer, path=1, interface=interface))
     for node in range(1, 4):
         network = dict(node=node, links=links[node], routes=routes[node], scheduler='priority',
-                       bytes_per_second=100_000_000, clock=dict(authority=2))
+                       bytes_per_second=100_000_000, clock=dict(authority=2),
+                       fabric=dict(adaptive_paths=True, telemetry=True, congestion_control=True, clock_independent=True))
         (options.directory / f'{node}.json').write_text(json.dumps(dict(network=network, peers=[peer for peer in range(1, 4) if peer != node])))
     for path in options.directory.glob("*.json"):
         destination = results / path.name
