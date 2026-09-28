@@ -1,0 +1,12 @@
+{
+  "network": {
+    "node": 1,
+    "links": [{"interface": "eth2", "peer_mac": "02:88:b5:00:00:02"}],
+    "routes": [{"destination": 2, "path": 1, "interface": "eth2"}],
+    "scheduler": "priority",
+    "bytes_per_second": 12500000,
+    "clock": {"authority": 2}
+  },
+  "peers": [2],
+  "queue_capacity": 256
+}

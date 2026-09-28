@@ -1,6 +1,6 @@
 use super::{client, random_session, write_json, Benchmark, Network};
 use crate::{
-    delivery::{Channel, ChannelOptions, Ordering, SubmitError, DEFAULT_PENDING, DEFAULT_TIMEOUT_US, PREFIX_SIZE},
+    delivery::{Channel, ChannelOptions, Ordering, SendTick, SubmitError, DEFAULT_PENDING, DEFAULT_TIMEOUT_US, PREFIX_SIZE},
     packet::{Class, MAX_FRAME, MAX_PAYLOAD, MAX_SHORT_PAYLOAD},
     tokens::TokenBucket,
 };
@@ -89,9 +89,12 @@ pub fn run_reliable_benchmark(options: Benchmark, reliable: ReliableOptions) -> 
                     Err(error) => return Err(io::Error::other(error)),
                 }
             }
-            for packet in channel.poll(network.clock.now(), network.time(), &mut retry_budget) {
-                network.enqueue(packet);
-            }
+            let tick = SendTick {
+                now: network.clock.now(),
+                time: network.time(),
+                retry_budget: &mut retry_budget,
+            };
+            channel.transmit(tick, |packet| network.try_enqueue(packet));
         }
         network.flush()?;
         if channels.iter().enumerate().all(|(index, channel)| counts[index] == 0 || channel.is_closed() || (generated[index] == counts[index] && channel.pending() == 0)) {

@@ -1,3 +1,5 @@
+mod endpoint;
+pub use endpoint::{Endpoint, MessageSink, Submission};
 mod client;
 mod node;
 mod reliable;
@@ -125,7 +127,8 @@ impl Network {
         }
         // 同じ受信バッチで基準ノードが再起動しても、旧世代のDATA/GRANTを返さない。
         let reading = self.time();
-        packets.retain(|packet| accept_data(&mut self.metrics, packet, reading));
+        let domain = self.synchronization.domain();
+        packets.retain(|packet| accept_packet(&mut self.metrics, packet, PacketTime { reading, domain }));
         Ok(packets)
     }
 
@@ -134,24 +137,34 @@ impl Network {
     }
 
     fn enqueue(&mut self, packet: Packet) {
+        self.try_enqueue(packet);
+    }
+
+    fn try_enqueue(&mut self, packet: Packet) -> bool {
         let Some(index) = self.routes.get(&(packet.destination, packet.path)) else {
             self.metrics.no_route += 1;
-            return;
+            return false;
         };
         let now = self.clock.now();
         let expires = if packet.is_sync() {
             now + SYNC_TIMEOUT_US
+        } else if packet.is_reliable_response() {
+            if !accept_response(&mut self.metrics, &packet, self.synchronization.domain()) {
+                return false;
+            }
+            // ACKの絶対期限は使わないが、各中継キューでの滞留は有限にする。
+            now + crate::delivery::ATTEMPT_LIFETIME_US
         } else {
             let reading = self.synchronization.reading(now);
             if !accept_data(&mut self.metrics, &packet, reading) {
-                return;
+                return false;
             }
             let Some(expires) = reading.and_then(|reading| reading.local_deadline(packet.expires)) else {
-                return;
+                return false;
             };
             expires
         };
-        self.queues[*index].enqueue_until(packet, now, expires);
+        self.queues[*index].enqueue_until(packet, now, expires)
     }
 
     fn forward(&mut self, mut packet: Packet) {
@@ -172,7 +185,14 @@ impl Network {
                 let now = self.clock.now();
                 if packet.is_sync() {
                     self.synchronization.stamp_reply(&mut packet, now);
-                } else if !accept_data(&mut self.metrics, &packet, self.synchronization.reading(now)) {
+                } else if !accept_packet(
+                    &mut self.metrics,
+                    &packet,
+                    PacketTime {
+                        reading: self.synchronization.reading(now),
+                        domain: self.synchronization.domain(),
+                    },
+                ) {
                     continue;
                 }
                 match link.send(&packet) {
@@ -227,6 +247,29 @@ impl Network {
     }
 }
 
+struct PacketTime {
+    reading: Option<Reading>,
+    domain: Option<u64>,
+}
+
+fn accept_packet(metrics: &mut NetworkMetrics, packet: &Packet, time: PacketTime) -> bool {
+    let PacketTime { reading, domain } = time;
+    if packet.is_reliable_response() {
+        accept_response(metrics, packet, domain)
+    } else {
+        accept_data(metrics, packet, reading)
+    }
+}
+
+fn accept_response(metrics: &mut NetworkMetrics, packet: &Packet, domain: Option<u64>) -> bool {
+    if domain == Some(packet.clock_domain) {
+        true
+    } else {
+        metrics.wrong_clock += 1;
+        false
+    }
+}
+
 fn accept_data(metrics: &mut NetworkMetrics, packet: &Packet, reading: Option<Reading>) -> bool {
     let Some(reading) = reading else {
         metrics.unsynchronized += 1;
@@ -249,4 +292,70 @@ fn write_json(path: &Path, report: &serde_json::Value) -> io::Result<()> {
         std::fs::create_dir_all(parent)?;
     }
     std::fs::write(path, serde_json::to_vec_pretty(report).map_err(io::Error::other)?)
+}
+
+#[cfg(test)]
+mod admission_tests {
+    use super::*;
+    use crate::delivery::{Channel, ChannelOptions, Receiver, ReceiverOptions};
+    use crate::tokens::TokenBucket;
+
+    #[test]
+    fn accepted_acknowledgements_survive_clock_uncertainty_but_not_generation_changes() {
+        let start = 1_000_000;
+        let domain = 42;
+        let mut sender = Channel::new(ChannelOptions::new(1, 2, 77)).unwrap();
+        let mut receiver = Receiver::new(ReceiverOptions::default(), 900).unwrap();
+        let mut budget = TokenBucket::new(1_000_000, 1_000_000, start);
+        let time = Some(Reading::exact(start, domain));
+        let open = sender.poll(start, time, &mut budget).remove(0);
+        sender.receive(&receiver.receive(&open, start).unwrap(), start);
+        sender.try_send(&[7], start).unwrap();
+        let data = sender.poll(start, time, &mut budget).remove(0);
+        let ack = receiver.receive(&data, start).unwrap();
+        let mut metrics = NetworkMetrics::default();
+        assert!(accept_packet(
+            &mut metrics,
+            &ack,
+            PacketTime {
+                reading: None,
+                domain: Some(domain)
+            }
+        ));
+        assert!(accept_packet(
+            &mut metrics,
+            &ack,
+            PacketTime {
+                reading: Some(Reading::exact(ack.expires + 1, domain)),
+                domain: Some(domain)
+            }
+        ));
+        assert!(!accept_packet(&mut metrics, &ack, PacketTime { reading: None, domain: None }));
+        assert!(!accept_packet(
+            &mut metrics,
+            &ack,
+            PacketTime {
+                reading: None,
+                domain: Some(domain + 1)
+            }
+        ));
+        assert!(!accept_packet(
+            &mut metrics,
+            &data,
+            PacketTime {
+                reading: None,
+                domain: Some(domain)
+            }
+        ));
+        assert!(!accept_packet(
+            &mut metrics,
+            &data,
+            PacketTime {
+                reading: Some(Reading::exact(data.expires + 1, domain)),
+                domain: Some(domain)
+            }
+        ));
+        assert_eq!(sender.receive(&ack, start + 1), Some(1));
+        assert_eq!(sender.pending(), 0);
+    }
 }

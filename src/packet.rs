@@ -193,6 +193,11 @@ impl Packet {
         matches!(self.kind, Kind::SyncRequest | Kind::SyncReply)
     }
 
+    /// 受付済みの事実は時計精度に依存しない。session/epochは配送層で照合する。
+    pub fn is_reliable_response(&self) -> bool {
+        matches!(self.kind, Kind::ReliableReady | Kind::ReliableAck | Kind::ReliableReset)
+    }
+
     pub fn is_data(&self) -> bool {
         matches!(self.kind, Kind::Data | Kind::ReliableData)
     }

@@ -55,7 +55,7 @@ ACKは現在の窓の先頭も伝える。窓の更新が失われた場合や�
 
 受信側のchannel数は最大128。送信元・session・channelで識別し、満杯でも既存の履歴を追い出さない。30秒通信がないchannelは失効し、未読の本文数を`abandoned_messages`に記録する。失効後は新しい受信世代を割り当て、旧DATAにはRESETを返す。受信側の毎秒受付件数は既存の`--short-credits-per-second` / `--bulk-credits-per-second`で制限し、新規DATAだけがその枠を消費する。
 
-各再送は20msから始めて待ち時間を倍増し、最大1秒に抑える。再送回数に固定上限はない。送信元で1回のパケットの滞留期限を200msに設定し、各ルーターではその期限を延ばさない。期限切れのパケットを捨てても、送信側に保持した論理メッセージは次の再送で送れる。同期断の間も保持を続け、同じ時計世代で復帰すれば再送する。同期断の時間も配送timeoutに含む。
+再送待ちは初期20msで、RTTを観測した後は2ms〜1秒へ調整する。再送ごとに待ち時間を倍増し、最大1秒に抑える。再送回数に固定上限はない。送信元で1回のDATAパケットの滞留期限を200msに設定し、各ルーターではその期限を延ばさない。期限切れのパケットを捨てても、送信側に保持した論理メッセージは次の再送で送れる。同期断の間も保持を続け、同じ時計世代で復帰すれば再送する。同期断の時間も配送timeoutに含む。
 
 固定の窓・受信レート・再送帯域枠・指数backoffを使う実験実装。TCPのような適応的な輻輳制御を実装したわけではなく、TCPより速いという測定結果もない。
 
@@ -77,11 +77,11 @@ checksum・fingerprint・世代番号は送信元認証ではない。信頼で�
 
 ## Rustから利用する
 
-実験crateの`delivery`モジュールを使う。本体のRelay/Stage SDKへの統合はまだ行っていない。
+実験crateの`delivery`モジュールを使う。本体Relayへの接続は[プラグインの導入](docs/plugin.md)を参照する。
 
 1. `ChannelOptions::new(source, destination, session)`を作り、channel・class・orderingを設定する。sessionは起動ごとに新しい非ゼロ値を使う。
 2. `Channel::try_send(&payload, now)`でsequenceを取得する。`WouldBlock`なら本文を保持する。
-3. `Channel::poll(now, reading, &mut retry_budget)`が返すPacketをNetworkへ渡す。時計・hop・経路・有界転送キューは既存のNetworkが検証する。
+3. `Channel::transmit(SendTick { now, time: reading, retry_budget: &mut budget }, enqueue)`で下位キューへ渡す。`enqueue`は受付時だけtrueを返す。無条件に受付できる単体試験では`poll`も使える。時計・hop・経路・有界転送キューは既存のNetworkが検証する。
 4. 検証済み応答を`Channel::receive`へ渡す。正しいACKの場合だけ受付を確認できたsequenceが返る。
 5. 受信側は検証済みPacketを`Receiver::receive`へ渡し、`take_delivery`で本文を読む。同じイベント内で読み取った分は`refresh_ack`でACKへ反映してから送信する。
 
@@ -96,6 +96,12 @@ L3_SUITE=reliable bash scripts/test-l3.sh artifacts/l3/reliable
 
 外部非接続の4プロセス・2経路で、先頭DATAの欠落（ordered/unordered）、別channelの継続、ACK消失、受信速度制限と小さい窓、主経路断、channel単独timeout、受信プロセス再起動、異なる時計・drift、同期断からの復帰を検証する。本文・sequence・重複・順序・有界キュー・明示失敗を照合する。失敗が期待される条件は終了コードが非ゼロであることも検査する。
 
-`test-l3.sh`の既定とCIはdeadlineの18条件と、この10条件を実行する。`L3_SUITE=deadline`なら従来条件だけ。別カーネルの確認は`python3 experiments/l3/comparison/verify_vm.py --directory artifacts/l3-vm/reliable`で、時計を模擬しない2台のKVMゲスト間に順序なし300件・順序あり300件を送る。
+`test-l3.sh`の既定とCIはdeadlineの18条件と、この10条件を実行する。`L3_SUITE=deadline`なら従来条件だけ。別カーネルの確認は`python3 comparison/verify_vm.py --directory artifacts/l3-vm/reliable`で、時計を模擬しない2台のKVMゲスト間に順序なし300件・順序あり300件を送る。
 
 CLIレポートの`acknowledged`は受信受付数、`delivered`は受信側がアプリへ渡した数。`unsubmitted`は生成予定のうち送信キューへ入れられなかった数で、成功率の分母から除かない。ACK時間は送信キューへの受付から測り、その前の生成待ちは含めない。CLI全体の`elapsed_us`には生成待ち・接続準備・最後の再送待ちを含む。
+
+## ACKと再送待ち
+
+信頼性配送のACK・READY・RESETは受付済みの事実を伝えるため、時計精度低下と絶対期限切れだけでは破棄しない。同じ時計世代かをNetworkが確認し、Channelがsource/destination/session/channel/epoch/fingerprintを検証する。各キューでは200msのローカル滞留上限とhop数を維持する。DATAとOPENの期限は引き続き厳密に確認する。
+
+再送待ちは初期20ms。未再送のACKから平滑化RTTと変動幅を計算し、2ms〜1秒へ調整する。再送時は指数backoffと共有予算を維持する。下位キューで拒否された場合は試行回数・期限・再送予算を進めない。`rtt_samples`、`smoothed_rtt_us`、`retry_timeout_us`、`admission_blocked`を送信レポートへ出す。

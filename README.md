@@ -1,4 +1,6 @@
-# 独自L3でメッセージを送る
+# amitoki-plugin-l3
+
+amitokiのL3中継プラグインと、独自プロトコルの実験・比較環境。[プラグインの導入](docs/plugin.md)、[設計と次の用途](docs/design-direction.md)を参照する。
 
 Ethernetの直上に独自ヘッダを載せ、短文の優先転送、受信側による送信量の制限、期限切れの破棄、2経路への複製を比較する試作。IP・TCP・UDPは使わない。Linuxのraw socketを使う別実行ファイル `amitoki-l3` として実装している。
 
@@ -40,7 +42,7 @@ L3_REPETITIONS=1 L3_DURATION_MS=1000 bash scripts/test-l3.sh artifacts/l3/quick
 | `<回>-<条件>/sample.pcap` | 先頭128フレームまでの実通信 |
 | `<回>-<条件>/*.log` | プロセスの出力 |
 
-失敗時は各条件の `.log` を確認する。`creditを取得できません` は、受信側から送信許可が戻らなかったことを示す。ルーター不在の条件では、この失敗を確認する。再現情報を共有する場合は、[Issue](https://github.com/amitoki/amitoki/issues)に条件と `verification.json` を添える。
+失敗時は各条件の `.log` を確認する。`creditを取得できません` は、受信側から送信許可が戻らなかったことを示す。ルーター不在の条件では、この失敗を確認する。再現情報を共有する場合は、[Issue](https://github.com/amitoki/amitoki-plugin-l3/issues)に条件と `verification.json` を添える。
 
 ## 2本の経路を独立したルーターで中継する
 
@@ -120,7 +122,7 @@ ACKの本文は8バイトのFNV-1a fingerprint。REQUESTとGRANTには本文が�
 
 信頼性配送はkind=7〜11を使い、本文先頭16バイトにchannel・順序指定・受信世代を載せる。旧実行ファイルはこれらを解釈できないため、信頼性配送ではルーターを含む全ノードを更新する。64バイトの共通ヘッダとdeadlineモードの形式は維持している。
 
-時計はLinuxの `CLOCK_BOOTTIME`。`clock.authority`を全ノードに設定すると、独自L3の時刻交換で別VM・別マシンにも対応する。OS時計は変更しない。誤差が大きいときや同期の失効時はDATA・ACK・送信枠の交換を止め、同期パケットは通す。[時計同期の設計と設定](clock-sync.md)を参照。設定を省略した場合は同じboot ID・time namespaceの実験だけを許可する。期限が1秒を超えて先の通常パケットは拒否する。
+時計はLinuxの `CLOCK_BOOTTIME`。`clock.authority`を全ノードに設定すると、独自L3の時刻交換で別VM・別マシンにも対応する。OS時計は変更しない。誤差が大きいときや同期の失効時は新しいDATA・OPENとdeadlineモードのACK・送信枠を止める。信頼性配送のACK・READY・RESETは同じ時計世代なら通し、session・受信epochを配送層で照合する。[時計同期の設計と設定](clock-sync.md)を参照。設定を省略した場合は同じboot ID・time namespaceの実験だけを許可する。期限が1秒を超えて先の通常パケットは拒否する。
 
 JSON設定はノードID、リンクの相手MAC、宛先と経路ID、出力ごとの帯域を指定する。例はR1の設定。インターフェース自体は事前に作成しておく。
 
@@ -150,11 +152,9 @@ target/release/amitoki-l3 receiver --help
 target/release/amitoki-l3 bench --help
 ```
 
-## 本体への組み込みと実機性能は次の検証対象
+## 本体との境界
 
-この試作は生成した本文を送り、受信・ACKまでを検証する実験プログラム。実験crateの`delivery::Channel`と`delivery::Receiver`では任意の本文と通信グループを扱える。本体SDKやsocket互換API、TCPのようなバイトストリーム、フラグメント、動的経路探索、暗号化・認証は持たない。通常のIPルーターを通してインターネットへ送る仕組みも含まない。
-
-本体のRelay/Stageにはまだ組み込んでいない。本体は未知のEtherTypeのフレームも扱えるため、後から解析Stageや中継経路との組み合わせを試せる。別マシンへの試験では全ノードに同じ時計の基準ノードを指定する。
+`plugin/`が本体SDKへのアダプタ、`src/`がL3の配送と比較CLI。補助プロセスが`runtime::Endpoint`を使い、フレームの分割・再構成と重複排除を行う。[起動・設定・配送契約](docs/plugin.md)を参照する。ソケット互換API、動的経路探索、暗号化・認証は含まない。
 
 実装はAF_PACKETを使うユーザー空間のルーター。キューがある間と1ms未満の待機はbusy waitを使うため、CPU使用率は高くなる。物理NICの最大性能とAF_XDPは未検証。[UDP/IPv4との比較と別VM試験](comparison.md)では、同じEthernet上でLinux UDP socketと比較できる。単純転送の性能と、混雑時の期限内ACK率を分けて測る。
 

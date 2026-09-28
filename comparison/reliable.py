@@ -104,7 +104,7 @@ def main():
         parser.error("duration-msは1000〜10000、repetitionsは1〜10です")
     directory = options.directory.resolve()
     directory.mkdir(parents=True, exist_ok=False)
-    repository = Path(__file__).resolve().parents[3]
+    repository = Path(__file__).resolve().parents[1]
     name = "amitoki-l3-tcp-" + uuid.uuid4().hex[:12]
     containers = [name + "-a", name + "-b"]
     cpus = sorted(os.sched_getaffinity(0))[:2]

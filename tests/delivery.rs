@@ -422,3 +422,78 @@ fn payload_limits_include_metadata_and_reliable_bulk_does_not_use_the_control_qu
     assert!(queue.enqueue(small, START));
     assert_eq!(queue.pop(START).unwrap().class, Class::Short);
 }
+
+#[test]
+fn a_full_lower_queue_does_not_start_the_retry_timer_or_consume_retry_budget() {
+    use amitoki_l3_lab::delivery::SendTick;
+    let mut sender = channel(Ordering::Unordered, 1);
+    let mut receiver = receiver(4);
+    open(&mut sender, &mut receiver);
+    sender.try_send(&[7], START).unwrap();
+    let mut budget = TokenBucket::new(1, 1000, START);
+    let mut send = |sender: &mut Channel, now, accept| {
+        let mut accepted = Vec::new();
+        sender.transmit(
+            SendTick {
+                now,
+                time: Some(Reading::exact(now, DOMAIN)),
+                retry_budget: &mut budget,
+            },
+            |packet| {
+                if accept {
+                    accepted.push(packet);
+                }
+                accept
+            },
+        );
+        accepted
+    };
+    assert!(send(&mut sender, START, false).is_empty());
+    assert_eq!(sender.metrics.sent, 0);
+    let first = send(&mut sender, START + 1, true);
+    assert_eq!(first.len(), 1);
+    assert_eq!(sender.metrics.sent, 1);
+    assert!(send(&mut sender, START + 20_001, false).is_empty());
+    assert_eq!(sender.metrics.retransmissions, 0);
+    let retry = send(&mut sender, START + 20_002, true);
+    assert_eq!(retry.len(), 1);
+    assert_eq!(retry[0].message, first[0].message);
+    assert_eq!(sender.metrics.retransmissions, 1);
+    let used = retry[0].wire_size() as u64;
+    assert_eq!(budget.take_up_to(1000, START + 20_002), 1000 - used);
+}
+
+#[test]
+fn measured_rtt_shortens_retry_wait_but_ambiguous_retransmissions_do_not_change_the_estimate() {
+    let mut sender = channel(Ordering::Unordered, 1);
+    let mut receiver = receiver(4);
+    open(&mut sender, &mut receiver);
+    let packet = messages(&mut sender, 1).remove(0);
+    let ack = receiver.receive(&packet, START + 100).unwrap();
+    sender.receive(&ack, START + 250);
+    assert_eq!(sender.metrics.rtt_samples, 1);
+    assert_eq!(sender.metrics.retry_timeout_us, 2_000);
+    sender.try_send(&[8], START + 300).unwrap();
+    let first = poll(&mut sender, START + 300).remove(0);
+    assert!(!poll(&mut sender, START + 2_299).iter().any(Packet::is_data));
+    let retry = poll(&mut sender, START + 2_300).into_iter().find(Packet::is_data).unwrap();
+    assert_eq!(retry.message, first.message);
+    let ack = receiver.receive(&retry, START + 2_400).unwrap();
+    sender.receive(&ack, START + 2_500);
+    assert_eq!(sender.metrics.rtt_samples, 1);
+    assert_eq!(sender.metrics.smoothed_rtt_us, 250);
+    assert_eq!(sender.pending(), 0);
+}
+
+#[test]
+fn slower_acknowledgements_increase_the_retry_wait() {
+    let mut sender = channel(Ordering::Unordered, 1);
+    let mut receiver = receiver(4);
+    open(&mut sender, &mut receiver);
+    let packet = messages(&mut sender, 1).remove(0);
+    sender.receive(&receiver.receive(&packet, START + 100).unwrap(), START + 100_000);
+    assert_eq!(sender.metrics.retry_timeout_us, 300_000);
+    sender.try_send(&[8], START + 100_001).unwrap();
+    poll(&mut sender, START + 100_001);
+    assert!(!poll(&mut sender, START + 120_001).iter().any(Packet::is_data));
+}

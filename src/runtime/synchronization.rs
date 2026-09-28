@@ -62,6 +62,14 @@ impl Synchronization {
         }
     }
 
+    pub fn domain(&self) -> Option<u64> {
+        match self.authority {
+            None => Some(self.local_domain),
+            Some(authority) if authority == self.node => Some(self.session),
+            Some(_) => self.estimate.domain(),
+        }
+    }
+
     pub fn requests(&mut self, now: u64) -> Vec<Packet> {
         let Some(authority) = self.authority else { return Vec::new() };
         if authority == self.node || now < self.next_request {

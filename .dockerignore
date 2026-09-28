@@ -1,0 +1,9 @@
+target
+artifacts
+dist
+.git
+.env*
+l3-node.json
+.vm-lab
+__pycache__
+*.pyc

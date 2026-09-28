@@ -1,10 +1,11 @@
 //! ACKは受信キューへの受付を表す。アプリ処理・永続化は保証しない。
 mod receiver;
+mod retry;
 mod sender;
 pub(crate) mod wire;
 
 pub use receiver::{DeliveredMessage, Receiver, ReceiverOptions};
-pub use sender::{Channel, ChannelOptions, ChannelState, SubmitError};
+pub use sender::{Channel, ChannelOptions, ChannelState, SendTick, SubmitError};
 pub use wire::{Ordering, PREFIX_SIZE};
 
 // パケットの滞留期限と論理メッセージの再送期限を分離する。

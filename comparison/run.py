@@ -153,7 +153,7 @@ def main():
         parser.error("repetitionsは1〜10、duration-msは1000〜30000です")
     directory = options.directory.resolve()
     directory.mkdir(parents=True, exist_ok=False)
-    repository = Path(__file__).resolve().parents[3]
+    repository = Path(__file__).resolve().parents[1]
     name = "amitoki-l3-compare-" + uuid.uuid4().hex[:12]
     containers = [name + "-a", name + "-b"]
     command("docker", "network", "create", "--internal", name)

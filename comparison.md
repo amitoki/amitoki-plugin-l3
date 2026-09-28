@@ -74,7 +74,7 @@ curl -fL https://cloud-images.ubuntu.com/releases/noble/release-20260801/SHA256S
 curl -fL https://cloud-images.ubuntu.com/releases/noble/release-20260801/ubuntu-24.04-server-cloudimg-amd64.img \
   -o "$HOME/.cache/amitoki-vm/ubuntu-24.04-server-cloudimg-amd64.img"
 cargo build --release -p amitoki-l3-lab --locked
-python3 experiments/l3/comparison/verify_vm.py --directory artifacts/l3-vm/run1
+python3 comparison/verify_vm.py --directory artifacts/l3-vm/run1
 ```
 
 各VMは2vCPU・1GiB RAM。専用のSSH鍵とディスクを指定ディレクトリ内に作り、ディレクトリは所有者だけが読める。起動時にパッケージを追加しない。QEMUの管理接続は127.0.0.1の空きportを使う。実験リンクはvirtio-netとQEMU socket backendで直結する。OS時計の変更や模擬offsetは使わない。

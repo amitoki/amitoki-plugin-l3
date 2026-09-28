@@ -1,0 +1,9 @@
+/target/
+/artifacts/
+/dist/
+/.vm-lab/
+__pycache__/
+*.pyc
+.env*
+
+/l3-node.json

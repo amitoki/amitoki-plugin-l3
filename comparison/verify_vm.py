@@ -94,7 +94,7 @@ def main():
     directory.mkdir(parents=True, mode=0o700, exist_ok=False)
     directory.chmod(0o700)
     machines = VirtualMachines(directory, options.image.resolve())
-    repository = Path(__file__).resolve().parents[3]
+    repository = Path(__file__).resolve().parents[1]
     try:
         for node in (0, 1):
             machines.start(node)

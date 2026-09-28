@@ -55,7 +55,7 @@ ACKの所要時間を主要指標にはしない。L3のACKは順序待ちに入
 時計同期が影響しているかを切り分ける場合は、ビルド後に以下を実行する。標準比較の結果とは別に保存する。同一ホストの時計を直接使う既存機能であり、別マシンへ適用する修正ではない。
 
 ```bash
-python3 experiments/l3/comparison/reliable.py \
+python3 comparison/reliable.py \
   --directory artifacts/l3-tcp/local-clock-diagnostic \
   --workload mixed_10mbps --mode l3_unordered --clock-mode local \
   --duration-ms 3000 --repetitions 3

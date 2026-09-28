@@ -33,12 +33,16 @@ impl TokenBucket {
     }
 
     pub fn take(&mut self, amount: u64, now: u64) -> bool {
-        self.refill(now);
-        if self.available < amount {
+        if !self.can_take(amount, now) {
             return false;
         }
         self.available -= amount;
         true
+    }
+
+    pub fn can_take(&mut self, amount: u64, now: u64) -> bool {
+        self.refill(now);
+        self.available >= amount
     }
 
     pub fn take_up_to(&mut self, maximum: u64, now: u64) -> u64 {

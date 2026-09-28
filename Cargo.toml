@@ -23,3 +23,7 @@ path = "src/udp_main.rs"
 [[bin]]
 name = "amitoki-l3-tcp"
 path = "src/tcp_main.rs"
+
+[workspace]
+members = ["plugin"]
+resolver = "2"

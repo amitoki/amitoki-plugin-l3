@@ -1,3 +1,4 @@
+use super::retry::{RetryTiming, INITIAL_RETRY_US, MAX_RETRY_US};
 use super::{wire::Metadata, Ordering, ATTEMPT_LIFETIME_US, DEFAULT_PENDING, DEFAULT_TIMEOUT_US, MAX_WINDOW, PREFIX_SIZE};
 use crate::{
     packet::{fingerprint, Class, Kind, Packet, INITIAL_HOPS, MAX_PAYLOAD, MAX_SHORT_PAYLOAD, REPLICA},
@@ -7,9 +8,6 @@ use crate::{
 use serde::Serialize;
 use std::collections::BTreeMap;
 
-// 再送は指数backoffで抑える。輻輳に適応する帯域制御は別途必要。
-const INITIAL_RETRY_US: u64 = 20_000;
-const MAX_RETRY_US: u64 = 1_000_000;
 const PROBE_INTERVAL_US: u64 = 100_000;
 const TRANSMIT_BURST: usize = 32;
 // 停止判定を有限にし、実験CLIの最大実行時間内へ収める。
@@ -71,6 +69,7 @@ struct Pending {
     retry_at: u64,
     retry_interval: u64,
     attempts: u64,
+    last_sent: u64,
 }
 
 #[derive(Default, Serialize)]
@@ -80,11 +79,21 @@ pub struct SenderMetrics {
     pub unconfirmed: u64,
     pub sent: u64,
     pub retransmissions: u64,
+    pub admission_blocked: u64,
+    pub rtt_samples: u64,
+    pub smoothed_rtt_us: u64,
+    pub retry_timeout_us: u64,
     pub redundant_bytes: u64,
     pub invalid_responses: u64,
     pub peak_pending: usize,
     pub acknowledgement_total_us: u64,
     pub acknowledgement_max_us: u64,
+}
+
+pub struct SendTick<'a> {
+    pub now: u64,
+    pub time: Option<Reading>,
+    pub retry_budget: &'a mut TokenBucket,
 }
 
 pub struct Channel {
@@ -98,6 +107,7 @@ pub struct Channel {
     domain: Option<u64>,
     probe_at: u64,
     state: ChannelState,
+    timing: RetryTiming,
     pub metrics: SenderMetrics,
 }
 
@@ -130,7 +140,11 @@ impl Channel {
             domain: None,
             probe_at: 0,
             state: ChannelState::Opening,
-            metrics: SenderMetrics::default(),
+            timing: RetryTiming::default(),
+            metrics: SenderMetrics {
+                retry_timeout_us: INITIAL_RETRY_US,
+                ..Default::default()
+            },
         })
     }
 
@@ -181,6 +195,7 @@ impl Channel {
                 retry_at: now,
                 retry_interval: INITIAL_RETRY_US,
                 attempts: 0,
+                last_sent: 0,
             },
         );
         self.metrics.submitted += 1;
@@ -189,17 +204,28 @@ impl Channel {
     }
 
     pub fn poll(&mut self, now: u64, time: Option<Reading>, retry_budget: &mut TokenBucket) -> Vec<Packet> {
+        let mut packets = Vec::new();
+        self.transmit(SendTick { now, time, retry_budget }, |packet| {
+            packets.push(packet);
+            true
+        });
+        packets
+    }
+
+    /// 下位キューが受け付けた後にだけ、試行回数と再送期限を進める。
+    pub fn transmit(&mut self, tick: SendTick<'_>, mut enqueue: impl FnMut(Packet) -> bool) {
+        let SendTick { now, time, retry_budget } = tick;
         if self.expire(now) {
-            return Vec::new();
+            return;
         }
-        let Some(time) = time else { return Vec::new() };
+        let Some(time) = time else { return };
         if self.domain.is_some_and(|domain| domain != time.domain) {
             self.fail(ChannelState::ClockChanged);
-            return Vec::new();
+            return;
         }
         self.domain = Some(time.domain);
         let Some(expires) = time.deadline(now.saturating_add(ATTEMPT_LIFETIME_US)).filter(|deadline| *deadline > time.latest) else {
-            return Vec::new();
+            return;
         };
         let metadata = Metadata {
             channel: self.options.channel,
@@ -221,22 +247,29 @@ impl Channel {
             flags: 0,
             payload: metadata.encode(&[]),
         };
-        let mut packets = Vec::new();
+        let mut accepted = 0;
         // ACKに載せた窓の更新が落ちても、定期probeで回復する。
         if now >= self.probe_at {
-            self.probe_at = now.saturating_add(PROBE_INTERVAL_US);
             for path in &self.options.paths {
-                packets.push(Packet { path: *path, ..template.clone() });
+                if enqueue(Packet { path: *path, ..template.clone() }) {
+                    accepted += 1;
+                    self.probe_at = now.saturating_add(PROBE_INTERVAL_US);
+                }
             }
         }
         if self.epoch.is_none() {
-            return packets;
+            return;
         }
         for (sequence, pending) in &mut self.pending {
-            if packets.len() >= TRANSMIT_BURST {
+            if accepted >= TRANSMIT_BURST {
                 break;
             }
-            if *sequence >= self.receive_base.saturating_add(self.receive_window) || now < pending.retry_at {
+            let retry_at = if pending.attempts == 0 {
+                pending.retry_at
+            } else {
+                pending.last_sent.saturating_add(pending.retry_interval.max(self.timing.timeout()))
+            };
+            if *sequence >= self.receive_base.saturating_add(self.receive_window) || now < retry_at {
                 continue;
             }
             let retry = pending.attempts != 0;
@@ -248,22 +281,31 @@ impl Channel {
                 payload: metadata.encode(&pending.payload),
                 ..template.clone()
             };
-            if retry && !retry_budget.take(packet.wire_size() as u64, now) {
+            let wire_size = packet.wire_size() as u64;
+            if retry && !retry_budget.can_take(wire_size, now) {
                 continue;
             }
+            if !enqueue(packet) {
+                self.metrics.admission_blocked += 1;
+                break;
+            }
+            accepted += 1;
             if retry {
+                // enqueueは予算を変更しないため、同じ時刻の予約量を確実に消費できる。
+                let consumed = retry_budget.take(wire_size, now);
+                debug_assert!(consumed);
                 self.metrics.retransmissions += 1;
-                self.metrics.redundant_bytes += packet.wire_size() as u64;
-                pending.retry_interval = pending.retry_interval.saturating_mul(2).min(MAX_RETRY_US);
+                self.metrics.redundant_bytes += wire_size;
+                pending.retry_interval = pending.retry_interval.saturating_mul(2).max(self.timing.timeout()).min(MAX_RETRY_US);
             } else {
+                pending.retry_interval = self.timing.timeout();
                 self.metrics.sent += 1;
                 self.highest_sent = self.highest_sent.max(*sequence);
             }
+            pending.last_sent = now;
             pending.attempts += 1;
             pending.retry_at = now.saturating_add(pending.retry_interval);
-            packets.push(packet);
         }
-        packets
     }
 
     /// 正しいACKだけで解放し、受付が確認できたsequenceを返す。
@@ -306,6 +348,13 @@ impl Channel {
                 if pending.attempts == 0 || packet.payload[PREFIX_SIZE..] != pending.fingerprint.to_be_bytes() {
                     self.metrics.invalid_responses += 1;
                     return None;
+                }
+                // 再送した本文へのACKはどの試行の応答か区別できないため推定に使わない。
+                if pending.attempts == 1 {
+                    self.timing.observe(now.saturating_sub(pending.last_sent));
+                    self.metrics.rtt_samples = self.timing.samples;
+                    self.metrics.smoothed_rtt_us = self.timing.smoothed_us;
+                    self.metrics.retry_timeout_us = self.timing.timeout();
                 }
                 self.receive_base = self.receive_base.max(packet.credit);
                 self.metrics.acknowledged += 1;
