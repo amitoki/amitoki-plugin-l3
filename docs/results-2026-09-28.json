@@ -1,0 +1,1453 @@
+{
+  "admission-ack": [
+    {
+      "workload": "idle",
+      "mode": "l3_unordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        0
+      ],
+      "delivered": [
+        900,
+        0
+      ],
+      "acknowledged": [
+        900,
+        0
+      ],
+      "short_p99_us": {
+        "median": 1182,
+        "min": 1165,
+        "max": 1213
+      },
+      "bulk_p99_us": null,
+      "goodput_mbps": {
+        "median": 0.10272814794725953,
+        "min": 0.10271372194472651,
+        "max": 0.10273271702620888
+      },
+      "cpu_us_per_message": {
+        "median": 1140.6166666666666,
+        "min": 1068.7833333333333,
+        "max": 1213.53
+      }
+    },
+    {
+      "workload": "idle",
+      "mode": "l3_ordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        0
+      ],
+      "delivered": [
+        900,
+        0
+      ],
+      "acknowledged": [
+        900,
+        0
+      ],
+      "short_p99_us": {
+        "median": 1160,
+        "min": 1121,
+        "max": 1168
+      },
+      "bulk_p99_us": null,
+      "goodput_mbps": {
+        "median": 0.10272244575723195,
+        "min": 0.10272151835244314,
+        "max": 0.10272392276980077
+      },
+      "cpu_us_per_message": {
+        "median": 1105.9,
+        "min": 1093.1566666666668,
+        "max": 1315.4133333333334
+      }
+    },
+    {
+      "workload": "idle",
+      "mode": "tcp_single",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        0
+      ],
+      "delivered": [
+        900,
+        0
+      ],
+      "acknowledged": [
+        900,
+        0
+      ],
+      "short_p99_us": {
+        "median": 1165,
+        "min": 1120,
+        "max": 1170
+      },
+      "bulk_p99_us": null,
+      "goodput_mbps": {
+        "median": 0.10272440366677969,
+        "min": 0.10271543911351762,
+        "max": 0.10272539982484517
+      },
+      "cpu_us_per_message": {
+        "median": 673.4533333333334,
+        "min": 669.87,
+        "max": 696.74
+      }
+    },
+    {
+      "workload": "idle",
+      "mode": "tcp_split",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        0
+      ],
+      "delivered": [
+        900,
+        0
+      ],
+      "acknowledged": [
+        900,
+        0
+      ],
+      "short_p99_us": {
+        "median": 1139,
+        "min": 1127,
+        "max": 1198
+      },
+      "bulk_p99_us": null,
+      "goodput_mbps": {
+        "median": 0.10273958858680893,
+        "min": 0.10272254880324218,
+        "max": 0.10274020707235225
+      },
+      "cpu_us_per_message": {
+        "median": 737.1766666666666,
+        "min": 698.3866666666667,
+        "max": 742.0533333333333
+      }
+    },
+    {
+      "workload": "short_10k",
+      "mode": "tcp_single",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        90000,
+        0
+      ],
+      "delivered": [
+        90000,
+        0
+      ],
+      "acknowledged": [
+        90000,
+        0
+      ],
+      "short_p99_us": {
+        "median": 1195,
+        "min": 1172,
+        "max": 1201
+      },
+      "bulk_p99_us": null,
+      "goodput_mbps": {
+        "median": 5.119223584423029,
+        "min": 5.118761259775135,
+        "max": 5.119232115182722
+      },
+      "cpu_us_per_message": {
+        "median": 53.6866,
+        "min": 51.9867,
+        "max": 53.970933333333335
+      }
+    },
+    {
+      "workload": "short_10k",
+      "mode": "l3_unordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        90000,
+        0
+      ],
+      "delivered": [
+        90000,
+        0
+      ],
+      "acknowledged": [
+        90000,
+        0
+      ],
+      "short_p99_us": {
+        "median": 1257,
+        "min": 1224,
+        "max": 1271
+      },
+      "bulk_p99_us": null,
+      "goodput_mbps": {
+        "median": 5.119972693478968,
+        "min": 5.119842991481595,
+        "max": 5.120116055963935
+      },
+      "cpu_us_per_message": {
+        "median": 43.69413333333333,
+        "min": 43.23256666666666,
+        "max": 44.8838
+      }
+    },
+    {
+      "workload": "short_10k",
+      "mode": "l3_ordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        90000,
+        0
+      ],
+      "delivered": [
+        90000,
+        0
+      ],
+      "acknowledged": [
+        90000,
+        0
+      ],
+      "short_p99_us": {
+        "median": 1255,
+        "min": 1252,
+        "max": 1291
+      },
+      "bulk_p99_us": null,
+      "goodput_mbps": {
+        "median": 5.119177518811978,
+        "min": 5.118682792294782,
+        "max": 5.119399323812672
+      },
+      "cpu_us_per_message": {
+        "median": 44.83436666666667,
+        "min": 44.62773333333333,
+        "max": 44.848
+      }
+    },
+    {
+      "workload": "short_10k",
+      "mode": "tcp_split",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        90000,
+        0
+      ],
+      "delivered": [
+        90000,
+        0
+      ],
+      "acknowledged": [
+        90000,
+        0
+      ],
+      "short_p99_us": {
+        "median": 1190,
+        "min": 1188,
+        "max": 1200
+      },
+      "bulk_p99_us": null,
+      "goodput_mbps": {
+        "median": 5.119208229127229,
+        "min": 5.118962556921797,
+        "max": 5.119658689420706
+      },
+      "cpu_us_per_message": {
+        "median": 54.42353333333333,
+        "min": 54.11193333333333,
+        "max": 55.532666666666664
+      }
+    },
+    {
+      "workload": "bulk_10k",
+      "mode": "tcp_single",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        0,
+        90000
+      ],
+      "delivered": [
+        0,
+        90000
+      ],
+      "acknowledged": [
+        0,
+        90000
+      ],
+      "short_p99_us": null,
+      "bulk_p99_us": {
+        "median": 1267,
+        "min": 1262,
+        "max": 1267
+      },
+      "goodput_mbps": {
+        "median": 95.98467444697997,
+        "min": 95.97533433907486,
+        "max": 95.99347244387381
+      },
+      "cpu_us_per_message": {
+        "median": 69.35146666666667,
+        "min": 69.00016666666667,
+        "max": 70.05386666666666
+      }
+    },
+    {
+      "workload": "bulk_10k",
+      "mode": "tcp_split",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        0,
+        90000
+      ],
+      "delivered": [
+        0,
+        90000
+      ],
+      "acknowledged": [
+        0,
+        90000
+      ],
+      "short_p99_us": null,
+      "bulk_p99_us": {
+        "median": 1265,
+        "min": 1236,
+        "max": 1276
+      },
+      "goodput_mbps": {
+        "median": 95.99260856914017,
+        "min": 95.9890572474738,
+        "max": 96.00115201382417
+      },
+      "cpu_us_per_message": {
+        "median": 71.158,
+        "min": 70.87383333333334,
+        "max": 72.0445
+      }
+    },
+    {
+      "workload": "bulk_10k",
+      "mode": "l3_unordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        0,
+        90000
+      ],
+      "delivered": [
+        0,
+        90000
+      ],
+      "acknowledged": [
+        0,
+        90000
+      ],
+      "short_p99_us": null,
+      "bulk_p99_us": {
+        "median": 1347,
+        "min": 1332,
+        "max": 1350
+      },
+      "goodput_mbps": {
+        "median": 95.98892927682341,
+        "min": 95.96551639111013,
+        "max": 95.99811203712994
+      },
+      "cpu_us_per_message": {
+        "median": 66.1494,
+        "min": 65.32216666666666,
+        "max": 66.42856666666667
+      }
+    },
+    {
+      "workload": "bulk_10k",
+      "mode": "l3_ordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        0,
+        90000
+      ],
+      "delivered": [
+        0,
+        90000
+      ],
+      "acknowledged": [
+        0,
+        90000
+      ],
+      "short_p99_us": null,
+      "bulk_p99_us": {
+        "median": 1341,
+        "min": 1336,
+        "max": 1350
+      },
+      "goodput_mbps": {
+        "median": 95.99177670446232,
+        "min": 95.98809747591298,
+        "max": 95.99987200017067
+      },
+      "cpu_us_per_message": {
+        "median": 66.02903333333333,
+        "min": 65.6315,
+        "max": 66.4168
+      }
+    },
+    {
+      "workload": "mixed_10mbps",
+      "mode": "tcp_split",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        13500
+      ],
+      "delivered": [
+        900,
+        13500
+      ],
+      "acknowledged": [
+        900,
+        13500
+      ],
+      "short_p99_us": {
+        "median": 167849,
+        "min": 167163,
+        "max": 168103
+      },
+      "bulk_p99_us": {
+        "median": 1673465,
+        "min": 1673254,
+        "max": 1675856
+      },
+      "goodput_mbps": {
+        "median": 9.280164020551203,
+        "min": 9.277302581286108,
+        "max": 9.280807394747463
+      },
+      "cpu_us_per_message": {
+        "median": 128.541875,
+        "min": 123.66166666666666,
+        "max": 129.00645833333334
+      }
+    },
+    {
+      "workload": "mixed_10mbps",
+      "mode": "l3_unordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        13500
+      ],
+      "delivered": [
+        900,
+        13500
+      ],
+      "acknowledged": [
+        900,
+        13500
+      ],
+      "short_p99_us": {
+        "median": 125576,
+        "min": 123598,
+        "max": 125649
+      },
+      "bulk_p99_us": {
+        "median": 2161462,
+        "min": 2159235,
+        "max": 2162116
+      },
+      "goodput_mbps": {
+        "median": 8.401741479678392,
+        "min": 8.400578327545938,
+        "max": 8.405229621850443
+      },
+      "cpu_us_per_message": {
+        "median": 236.0975,
+        "min": 231.23208333333332,
+        "max": 238.55979166666665
+      }
+    },
+    {
+      "workload": "mixed_10mbps",
+      "mode": "l3_ordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        13500
+      ],
+      "delivered": [
+        900,
+        13500
+      ],
+      "acknowledged": [
+        900,
+        13500
+      ],
+      "short_p99_us": {
+        "median": 124484,
+        "min": 121891,
+        "max": 125632
+      },
+      "bulk_p99_us": {
+        "median": 2160142,
+        "min": 2159706,
+        "max": 2162831
+      },
+      "goodput_mbps": {
+        "median": 8.402711830624728,
+        "min": 8.399347391835757,
+        "max": 8.403783046753809
+      },
+      "cpu_us_per_message": {
+        "median": 235.721875,
+        "min": 235.38895833333333,
+        "max": 236.2175
+      }
+    },
+    {
+      "workload": "mixed_10mbps",
+      "mode": "tcp_single",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        13500
+      ],
+      "delivered": [
+        900,
+        13500
+      ],
+      "acknowledged": [
+        900,
+        13500
+      ],
+      "short_p99_us": {
+        "median": 269634,
+        "min": 268615,
+        "max": 273291
+      },
+      "bulk_p99_us": {
+        "median": 1656955,
+        "min": 1631024,
+        "max": 1656979
+      },
+      "goodput_mbps": {
+        "median": 9.318340213485326,
+        "min": 9.315602786767096,
+        "max": 9.364625953715409
+      },
+      "cpu_us_per_message": {
+        "median": 115.081875,
+        "min": 114.75541666666666,
+        "max": 119.55
+      }
+    },
+    {
+      "workload": "loss_1pct",
+      "mode": "tcp_split",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        4500
+      ],
+      "delivered": [
+        900,
+        4500
+      ],
+      "acknowledged": [
+        900,
+        4500
+      ],
+      "short_p99_us": {
+        "median": 3589,
+        "min": 3082,
+        "max": 14332
+      },
+      "bulk_p99_us": {
+        "median": 6395,
+        "min": 6309,
+        "max": 6667
+      },
+      "goodput_mbps": {
+        "median": 4.901213906234691,
+        "min": 4.900521466771071,
+        "max": 4.90169252237927
+      },
+      "cpu_us_per_message": {
+        "median": 182.53833333333333,
+        "min": 182.42944444444444,
+        "max": 185.19
+      }
+    },
+    {
+      "workload": "loss_1pct",
+      "mode": "tcp_single",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        4500
+      ],
+      "delivered": [
+        900,
+        4500
+      ],
+      "acknowledged": [
+        900,
+        4500
+      ],
+      "short_p99_us": {
+        "median": 5536,
+        "min": 4819,
+        "max": 5650
+      },
+      "bulk_p99_us": {
+        "median": 5608,
+        "min": 5421,
+        "max": 5645
+      },
+      "goodput_mbps": {
+        "median": 4.901419716056789,
+        "min": 4.900585149966129,
+        "max": 4.902249664343627
+      },
+      "cpu_us_per_message": {
+        "median": 164.86833333333334,
+        "min": 159.3361111111111,
+        "max": 180.28944444444446
+      }
+    },
+    {
+      "workload": "loss_1pct",
+      "mode": "l3_ordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        4500
+      ],
+      "delivered": [
+        900,
+        4500
+      ],
+      "acknowledged": [
+        900,
+        4500
+      ],
+      "short_p99_us": {
+        "median": 12597,
+        "min": 12199,
+        "max": 12809
+      },
+      "bulk_p99_us": {
+        "median": 21536,
+        "min": 20767,
+        "max": 22461
+      },
+      "goodput_mbps": {
+        "median": 4.901217172922268,
+        "min": 4.881998129815501,
+        "max": 4.901654948447836
+      },
+      "cpu_us_per_message": {
+        "median": 252.7422222222222,
+        "min": 241.485,
+        "max": 260.03833333333336
+      }
+    },
+    {
+      "workload": "loss_1pct",
+      "mode": "l3_unordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        4500
+      ],
+      "delivered": [
+        900,
+        4500
+      ],
+      "acknowledged": [
+        900,
+        4500
+      ],
+      "short_p99_us": {
+        "median": 22570,
+        "min": 22392,
+        "max": 22892
+      },
+      "bulk_p99_us": {
+        "median": 22611,
+        "min": 4628,
+        "max": 23069
+      },
+      "goodput_mbps": {
+        "median": 4.897665589929734,
+        "min": 4.882233122382479,
+        "max": 4.9010162797370205
+      },
+      "cpu_us_per_message": {
+        "median": 249.3461111111111,
+        "min": 243.535,
+        "max": 252.95055555555555
+      }
+    }
+  ],
+  "final": [
+    {
+      "workload": "idle",
+      "mode": "l3_unordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        0
+      ],
+      "delivered": [
+        900,
+        0
+      ],
+      "acknowledged": [
+        900,
+        0
+      ],
+      "short_p99_us": {
+        "median": 1142,
+        "min": 1082,
+        "max": 1149
+      },
+      "bulk_p99_us": null,
+      "goodput_mbps": {
+        "median": 0.10272169009280731,
+        "min": 0.1027174654465401,
+        "max": 0.10272519372159132
+      },
+      "cpu_us_per_message": {
+        "median": 999.98,
+        "min": 936.8733333333333,
+        "max": 1001.23
+      }
+    },
+    {
+      "workload": "idle",
+      "mode": "l3_ordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        0
+      ],
+      "delivered": [
+        900,
+        0
+      ],
+      "acknowledged": [
+        900,
+        0
+      ],
+      "short_p99_us": {
+        "median": 1149,
+        "min": 1114,
+        "max": 1176
+      },
+      "bulk_p99_us": null,
+      "goodput_mbps": {
+        "median": 0.10272900676566818,
+        "min": 0.10270420986963386,
+        "max": 0.10273034655105935
+      },
+      "cpu_us_per_message": {
+        "median": 1024.0466666666666,
+        "min": 901.44,
+        "max": 1080.1433333333334
+      }
+    },
+    {
+      "workload": "idle",
+      "mode": "tcp_single",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        0
+      ],
+      "delivered": [
+        900,
+        0
+      ],
+      "acknowledged": [
+        900,
+        0
+      ],
+      "short_p99_us": {
+        "median": 1111,
+        "min": 1091,
+        "max": 1122
+      },
+      "bulk_p99_us": null,
+      "goodput_mbps": {
+        "median": 0.10271114629918901,
+        "min": 0.10270510262486426,
+        "max": 0.10273910754764559
+      },
+      "cpu_us_per_message": {
+        "median": 568.3766666666667,
+        "min": 445.2733333333333,
+        "max": 686.62
+      }
+    },
+    {
+      "workload": "idle",
+      "mode": "tcp_split",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        0
+      ],
+      "delivered": [
+        900,
+        0
+      ],
+      "acknowledged": [
+        900,
+        0
+      ],
+      "short_p99_us": {
+        "median": 1093,
+        "min": 1087,
+        "max": 1189
+      },
+      "bulk_p99_us": null,
+      "goodput_mbps": {
+        "median": 0.10271289772410018,
+        "min": 0.10270857078282186,
+        "max": 0.10272474716737848
+      },
+      "cpu_us_per_message": {
+        "median": 617.9333333333333,
+        "min": 439.50333333333333,
+        "max": 762.1133333333333
+      }
+    },
+    {
+      "workload": "short_10k",
+      "mode": "tcp_single",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        90000,
+        0
+      ],
+      "delivered": [
+        90000,
+        0
+      ],
+      "acknowledged": [
+        90000,
+        0
+      ],
+      "short_p99_us": {
+        "median": 1153,
+        "min": 1136,
+        "max": 1166
+      },
+      "bulk_p99_us": null,
+      "goodput_mbps": {
+        "median": 5.119155339369004,
+        "min": 5.11832289619768,
+        "max": 5.119575075268752
+      },
+      "cpu_us_per_message": {
+        "median": 50.990066666666664,
+        "min": 47.0482,
+        "max": 53.90606666666667
+      }
+    },
+    {
+      "workload": "short_10k",
+      "mode": "l3_unordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        90000,
+        0
+      ],
+      "delivered": [
+        90000,
+        0
+      ],
+      "acknowledged": [
+        90000,
+        0
+      ],
+      "short_p99_us": {
+        "median": 1233,
+        "min": 1115,
+        "max": 1245
+      },
+      "bulk_p99_us": null,
+      "goodput_mbps": {
+        "median": 5.119385673719154,
+        "min": 5.1186674402430565,
+        "max": 5.119829339022033
+      },
+      "cpu_us_per_message": {
+        "median": 44.658833333333334,
+        "min": 39.1466,
+        "max": 45.68686666666667
+      }
+    },
+    {
+      "workload": "short_10k",
+      "mode": "l3_ordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        90000,
+        0
+      ],
+      "delivered": [
+        90000,
+        0
+      ],
+      "acknowledged": [
+        90000,
+        0
+      ],
+      "short_p99_us": {
+        "median": 1247,
+        "min": 1124,
+        "max": 1259
+      },
+      "bulk_p99_us": null,
+      "goodput_mbps": {
+        "median": 5.119073447705965,
+        "min": 5.1185019850856985,
+        "max": 5.119665515186341
+      },
+      "cpu_us_per_message": {
+        "median": 40.0807,
+        "min": 38.764966666666666,
+        "max": 45.6665
+      }
+    },
+    {
+      "workload": "short_10k",
+      "mode": "tcp_split",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        90000,
+        0
+      ],
+      "delivered": [
+        90000,
+        0
+      ],
+      "acknowledged": [
+        90000,
+        0
+      ],
+      "short_p99_us": {
+        "median": 1154,
+        "min": 1092,
+        "max": 1204
+      },
+      "bulk_p99_us": null,
+      "goodput_mbps": {
+        "median": 5.1195153525466255,
+        "min": 5.118587269913504,
+        "max": 5.1195972583490095
+      },
+      "cpu_us_per_message": {
+        "median": 53.882933333333334,
+        "min": 47.7828,
+        "max": 56.196266666666666
+      }
+    },
+    {
+      "workload": "bulk_10k",
+      "mode": "tcp_single",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        0,
+        90000
+      ],
+      "delivered": [
+        0,
+        90000
+      ],
+      "acknowledged": [
+        0,
+        90000
+      ],
+      "short_p99_us": null,
+      "bulk_p99_us": {
+        "median": 1238,
+        "min": 1234,
+        "max": 2859
+      },
+      "goodput_mbps": {
+        "median": 96.00102401092278,
+        "min": 95.96884211592636,
+        "max": 96.00128001706689
+      },
+      "cpu_us_per_message": {
+        "median": 63.51456666666667,
+        "min": 49.484633333333335,
+        "max": 70.2482
+      }
+    },
+    {
+      "workload": "bulk_10k",
+      "mode": "tcp_split",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        0,
+        90000
+      ],
+      "delivered": [
+        0,
+        90000
+      ],
+      "acknowledged": [
+        0,
+        90000
+      ],
+      "short_p99_us": null,
+      "bulk_p99_us": {
+        "median": 1248,
+        "min": 1231,
+        "max": 1749
+      },
+      "goodput_mbps": {
+        "median": 95.97667766732684,
+        "min": 95.97005734210926,
+        "max": 96.00131201793091
+      },
+      "cpu_us_per_message": {
+        "median": 65.87526666666666,
+        "min": 62.977266666666665,
+        "max": 70.6388
+      }
+    },
+    {
+      "workload": "bulk_10k",
+      "mode": "l3_unordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        0,
+        90000
+      ],
+      "delivered": [
+        0,
+        90000
+      ],
+      "acknowledged": [
+        0,
+        90000
+      ],
+      "short_p99_us": null,
+      "bulk_p99_us": {
+        "median": 1286,
+        "min": 1283,
+        "max": 1339
+      },
+      "goodput_mbps": {
+        "median": 96.00016000026666,
+        "min": 95.96989744216897,
+        "max": 96.00092800897076
+      },
+      "cpu_us_per_message": {
+        "median": 62.25946666666667,
+        "min": 57.67386666666667,
+        "max": 66.6286
+      }
+    },
+    {
+      "workload": "bulk_10k",
+      "mode": "l3_ordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        0,
+        90000
+      ],
+      "delivered": [
+        0,
+        90000
+      ],
+      "acknowledged": [
+        0,
+        90000
+      ],
+      "short_p99_us": null,
+      "bulk_p99_us": {
+        "median": 1341,
+        "min": 1273,
+        "max": 2706
+      },
+      "goodput_mbps": {
+        "median": 95.99398437697904,
+        "min": 95.98413062373687,
+        "max": 96.00131201793091
+      },
+      "cpu_us_per_message": {
+        "median": 61.62963333333333,
+        "min": 53.91546666666667,
+        "max": 66.47183333333334
+      }
+    },
+    {
+      "workload": "mixed_10mbps",
+      "mode": "tcp_split",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        13500
+      ],
+      "delivered": [
+        900,
+        13500
+      ],
+      "acknowledged": [
+        900,
+        13500
+      ],
+      "short_p99_us": {
+        "median": 168801,
+        "min": 166978,
+        "max": 169030
+      },
+      "bulk_p99_us": {
+        "median": 1675137,
+        "min": 1649289,
+        "max": 1685251
+      },
+      "goodput_mbps": {
+        "median": 9.277041458953965,
+        "min": 9.25601211464663,
+        "max": 9.329830186591456
+      },
+      "cpu_us_per_message": {
+        "median": 102.25,
+        "min": 99.90541666666667,
+        "max": 121.66541666666667
+      }
+    },
+    {
+      "workload": "mixed_10mbps",
+      "mode": "l3_unordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        13500
+      ],
+      "delivered": [
+        900,
+        13500
+      ],
+      "acknowledged": [
+        900,
+        13500
+      ],
+      "short_p99_us": {
+        "median": 127268,
+        "min": 127191,
+        "max": 127784
+      },
+      "bulk_p99_us": {
+        "median": 2083267,
+        "min": 2080157,
+        "max": 2088774
+      },
+      "goodput_mbps": {
+        "median": 8.532200392337822,
+        "min": 8.522990733809928,
+        "max": 8.53740402651534
+      },
+      "cpu_us_per_message": {
+        "median": 168.31229166666665,
+        "min": 157.87375,
+        "max": 205.41895833333334
+      }
+    },
+    {
+      "workload": "mixed_10mbps",
+      "mode": "l3_ordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        13500
+      ],
+      "delivered": [
+        900,
+        13500
+      ],
+      "acknowledged": [
+        900,
+        13500
+      ],
+      "short_p99_us": {
+        "median": 125746,
+        "min": 123317,
+        "max": 127080
+      },
+      "bulk_p99_us": {
+        "median": 2081386,
+        "min": 2080736,
+        "max": 2085175
+      },
+      "goodput_mbps": {
+        "median": 8.535342240009417,
+        "min": 8.529055840779666,
+        "max": 8.536420743326605
+      },
+      "cpu_us_per_message": {
+        "median": 170.360625,
+        "min": 169.988125,
+        "max": 199.27979166666665
+      }
+    },
+    {
+      "workload": "mixed_10mbps",
+      "mode": "tcp_single",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        13500
+      ],
+      "delivered": [
+        900,
+        13500
+      ],
+      "acknowledged": [
+        900,
+        13500
+      ],
+      "short_p99_us": {
+        "median": 270574,
+        "min": 269948,
+        "max": 275963
+      },
+      "bulk_p99_us": {
+        "median": 1663267,
+        "min": 1652278,
+        "max": 1669410
+      },
+      "goodput_mbps": {
+        "median": 9.300416589710439,
+        "min": 9.297230717155168,
+        "max": 9.327941889035158
+      },
+      "cpu_us_per_message": {
+        "median": 90.10291666666667,
+        "min": 73.19229166666666,
+        "max": 111.366875
+      }
+    },
+    {
+      "workload": "loss_1pct",
+      "mode": "tcp_split",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        4500
+      ],
+      "delivered": [
+        900,
+        4500
+      ],
+      "acknowledged": [
+        900,
+        4500
+      ],
+      "short_p99_us": {
+        "median": 12453,
+        "min": 12448,
+        "max": 12766
+      },
+      "bulk_p99_us": {
+        "median": 6229,
+        "min": 5232,
+        "max": 6647
+      },
+      "goodput_mbps": {
+        "median": 4.901839556344058,
+        "min": 4.900900324500703,
+        "max": 4.902096070043657
+      },
+      "cpu_us_per_message": {
+        "median": 132.72611111111112,
+        "min": 109.22944444444444,
+        "max": 170.54222222222222
+      }
+    },
+    {
+      "workload": "loss_1pct",
+      "mode": "tcp_single",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        4500
+      ],
+      "delivered": [
+        900,
+        4500
+      ],
+      "acknowledged": [
+        900,
+        4500
+      ],
+      "short_p99_us": {
+        "median": 4325,
+        "min": 3797,
+        "max": 5353
+      },
+      "bulk_p99_us": {
+        "median": 6105,
+        "min": 5301,
+        "max": 6340
+      },
+      "goodput_mbps": {
+        "median": 4.900576985361446,
+        "min": 4.579451008916528,
+        "max": 4.901400114376667
+      },
+      "cpu_us_per_message": {
+        "median": 133.47444444444446,
+        "min": 124.71111111111111,
+        "max": 172.9038888888889
+      }
+    },
+    {
+      "workload": "loss_1pct",
+      "mode": "l3_ordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        4500
+      ],
+      "delivered": [
+        900,
+        4500
+      ],
+      "acknowledged": [
+        900,
+        4500
+      ],
+      "short_p99_us": {
+        "median": 2371,
+        "min": 2322,
+        "max": 4134
+      },
+      "bulk_p99_us": {
+        "median": 4274,
+        "min": 3976,
+        "max": 4514
+      },
+      "goodput_mbps": {
+        "median": 4.90200130389395,
+        "min": 4.901292307938406,
+        "max": 4.902025812029682
+      },
+      "cpu_us_per_message": {
+        "median": 228.89,
+        "min": 201.70222222222222,
+        "max": 261.77777777777777
+      }
+    },
+    {
+      "workload": "loss_1pct",
+      "mode": "l3_unordered",
+      "repetitions": 3,
+      "completed": 3,
+      "offered": [
+        900,
+        4500
+      ],
+      "delivered": [
+        900,
+        4500
+      ],
+      "acknowledged": [
+        900,
+        4500
+      ],
+      "short_p99_us": {
+        "median": 2648,
+        "min": 2582,
+        "max": 3642
+      },
+      "bulk_p99_us": {
+        "median": 4126,
+        "min": 3406,
+        "max": 5333
+      },
+      "goodput_mbps": {
+        "median": 4.902132016783082,
+        "min": 4.901785642866094,
+        "max": 4.902210447862682
+      },
+      "cpu_us_per_message": {
+        "median": 209.7811111111111,
+        "min": 197.55444444444444,
+        "max": 262.1094444444444
+      }
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "incomplete_runs": 0,
+    "runs": 60,
+    "repetitions": 3,
+    "duration_ms": 3000,
+    "kernel": "7.0.0-31-generic",
+    "machine": "x86_64",
+    "cpus": [
+      0,
+      1
+    ],
+    "topology": "two network namespaces on an internal Ethernet bridge; common CLOCK_BOOTTIME verified",
+    "offload": false,
+    "order_seed": 20260928,
+    "loss_seed": null,
+    "clock_mode": "authority",
+    "receipts": "all messages checked for fingerprint, size, sequence, duplicates and applicable ordering",
+    "binaries": {
+      "amitoki-l3": "3e8f88e98d46c61dede34ee08974493bad583270c8f621a278a808121674f823",
+      "amitoki-l3-tcp": "938099003be9c7f70d3c4b00c61c67ab802477926844ee3b9f52b1ec89b26cbe"
+    }
+  }
+}
