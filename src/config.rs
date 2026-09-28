@@ -1,4 +1,4 @@
-use crate::scheduler::Scheduling;
+use crate::{scheduler::Scheduling, sync::ClockSettings};
 use serde::Deserialize;
 use std::{collections::HashSet, path::Path};
 
@@ -30,6 +30,8 @@ pub struct Config {
     pub routes: Vec<Route>,
     pub scheduler: Scheduling,
     pub bytes_per_second: u64,
+    #[serde(default)]
+    pub clock: ClockSettings,
 }
 
 impl Config {
@@ -40,6 +42,7 @@ impl Config {
     }
 
     pub fn validate(&self) -> Result<(), &'static str> {
+        self.clock.validate()?;
         if self.node == 0
             || self.links.is_empty()
             || self.links.len() > MAX_LINKS
@@ -65,6 +68,9 @@ impl Config {
             if route.destination == 0 || route.destination == self.node || route.path == 0 || !names.contains(&route.interface) || !routes.insert((route.destination, route.path)) {
                 return Err("経路が不正または重複しています");
             }
+        }
+        if self.clock.authority.is_some_and(|authority| authority != self.node && !self.routes.iter().any(|route| route.destination == authority)) {
+            return Err("時計の基準ノードへの経路がありません");
         }
         Ok(())
     }

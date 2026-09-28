@@ -29,9 +29,14 @@ pub struct QueueMetrics {
     pub peak: usize,
 }
 
+struct QueuedPacket {
+    packet: Packet,
+    expires: u64,
+}
+
 pub struct Scheduler {
     mode: Scheduling,
-    packets: VecDeque<Packet>,
+    packets: VecDeque<QueuedPacket>,
     control_run: usize,
     short_run: usize,
     bandwidth: TokenBucket,
@@ -52,18 +57,24 @@ impl Scheduler {
     }
 
     pub fn enqueue(&mut self, packet: Packet, now: u64) -> bool {
+        let expires = packet.expires;
+        self.enqueue_until(packet, now, expires)
+    }
+
+    pub fn enqueue_until(&mut self, packet: Packet, now: u64, expires: u64) -> bool {
         self.expire(now);
-        if packet.expires <= now {
+        if expires <= now {
             self.metrics.expired += 1;
             return false;
         }
         let class = queue_class(&packet);
         let limit = [CONTROL_CAPACITY, SHORT_CAPACITY, BULK_CAPACITY][class];
-        if self.packets.len() == QUEUE_CAPACITY || (self.mode == Scheduling::Priority && self.packets.iter().filter(|queued| queue_class(queued) == class).count() >= limit) {
+        if self.packets.len() == QUEUE_CAPACITY || (self.mode == Scheduling::Priority && self.packets.iter().filter(|queued| queue_class(&queued.packet) == class).count() >= limit)
+        {
             self.metrics.full += 1;
             return false;
         }
-        self.packets.push_back(packet);
+        self.packets.push_back(QueuedPacket { packet, expires });
         self.metrics.peak = self.metrics.peak.max(self.packets.len());
         true
     }
@@ -77,11 +88,11 @@ impl Scheduler {
     pub fn pop(&mut self, now: u64) -> Option<Packet> {
         self.expire(now);
         let index = if self.mode == Scheduling::Fifo { 0 } else { self.select()? };
-        let size = self.packets.get(index)?.wire_size() as u64;
+        let size = self.packets.get(index)?.packet.wire_size() as u64;
         if !self.bandwidth.take(size, now) {
             return None;
         }
-        let packet = self.packets.remove(index)?;
+        let packet = self.packets.remove(index)?.packet;
         match queue_class(&packet) {
             0 => self.control_run += 1,
             1 => {
@@ -99,9 +110,9 @@ impl Scheduler {
     }
 
     fn select(&self) -> Option<usize> {
-        let control = self.packets.iter().position(|packet| queue_class(packet) == 0);
-        let short = self.packets.iter().enumerate().filter(|(_, packet)| queue_class(packet) == 1).min_by_key(|(_, packet)| packet.expires).map(|(index, _)| index);
-        let bulk = self.packets.iter().position(|packet| queue_class(packet) == 2);
+        let control = self.packets.iter().position(|packet| queue_class(&packet.packet) == 0);
+        let short = self.packets.iter().enumerate().filter(|(_, packet)| queue_class(&packet.packet) == 1).min_by_key(|(_, packet)| packet.expires).map(|(index, _)| index);
+        let bulk = self.packets.iter().position(|packet| queue_class(&packet.packet) == 2);
         if control.is_some() && (self.control_run < CONTROL_BURST || (short.is_none() && bulk.is_none())) {
             return control;
         }

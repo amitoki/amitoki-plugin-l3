@@ -38,6 +38,8 @@ pub enum Kind {
     Ack = 2,
     Request = 3,
     Grant = 4,
+    SyncRequest = 5,
+    SyncReply = 6,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -114,6 +116,8 @@ impl Packet {
                 2 => Kind::Ack,
                 3 => Kind::Request,
                 4 => Kind::Grant,
+                5 => Kind::SyncRequest,
+                6 => Kind::SyncReply,
                 _ => return Err(PacketError("kind")),
             },
             class: match bytes[6] {
@@ -155,9 +159,14 @@ impl Packet {
         if self.kind == Kind::Data && self.class == Class::Short && self.payload.len() > MAX_SHORT_PAYLOAD {
             return Err(PacketError("short payload長"));
         }
+        if self.is_sync() && (self.class != Class::Short || self.credit != 0 || self.expires != 0) {
+            return Err(PacketError("時計制御のclass/credit/expires"));
+        }
         match self.kind {
             Kind::Ack if self.payload.len() != 8 => return Err(PacketError("ACK長")),
             Kind::Grant | Kind::Request if !self.payload.is_empty() => return Err(PacketError("制御payload")),
+            Kind::SyncRequest if self.payload.len() != 8 => return Err(PacketError("時計要求長")),
+            Kind::SyncReply if self.payload.len() != 24 => return Err(PacketError("時計応答長")),
             _ => {},
         }
         Ok(())
@@ -165,6 +174,10 @@ impl Packet {
 
     pub fn valid_at(&self, now: u64, domain: u64) -> bool {
         self.clock_domain == domain && self.expires > now && self.expires - now <= MAX_LIFETIME_US
+    }
+
+    pub fn is_sync(&self) -> bool {
+        matches!(self.kind, Kind::SyncRequest | Kind::SyncReply)
     }
 
     pub fn wire_size(&self) -> usize {

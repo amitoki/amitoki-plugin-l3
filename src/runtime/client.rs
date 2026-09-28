@@ -1,11 +1,12 @@
 use super::{write_json, Network};
+use crate::measurement::{traffic_report, TrafficMetrics};
 use crate::{
     config::{Config, MAX_BYTES_PER_SECOND},
     credit::Allowance,
     packet::{fingerprint, Class, Kind, Packet, INITIAL_HOPS, MAX_FRAME, MAX_LIFETIME_US, MAX_PAYLOAD, MAX_SHORT_PAYLOAD, REPLICA},
+    sync::Reading,
     tokens::TokenBucket,
 };
-use serde::Serialize;
 use std::{
     collections::{HashMap, VecDeque},
     io,
@@ -40,24 +41,13 @@ pub struct Benchmark {
     pub output: PathBuf,
 }
 
-#[derive(Default, Serialize)]
-struct TrafficMetrics {
-    offered: u64,
-    sent: u64,
-    acknowledged: u64,
-    no_credit: u64,
-    expired_before_send: u64,
-    pending_full: u64,
-    #[serde(skip)]
-    latencies: Vec<u64>,
-}
-
 struct Pending {
     packet: Packet,
     started: u64,
     hash: u64,
     retry_at: u64,
     retries: u8,
+    local_deadline: u64,
 }
 struct Request {
     message: u64,
@@ -81,13 +71,15 @@ struct Client {
     redundant_bytes: u64,
     duplicate_acks: u64,
     invalid_acks: u64,
+    clock_domain: Option<u64>,
 }
 
 impl Client {
-    fn packet(&mut self, class: Class, now: u64) -> Packet {
+    fn packet(&mut self, class: Class, time: Reading) -> Option<Packet> {
+        let expires = time.deadline(time.local.checked_add(REQUEST_LIFETIME_US)?)?;
         let message = self.next_message;
         self.next_message += 1;
-        Packet {
+        Some(Packet {
             kind: Kind::Request,
             class,
             hops: INITIAL_HOPS,
@@ -95,17 +87,27 @@ impl Client {
             destination: self.peer,
             session: self.session,
             message,
-            expires: now + REQUEST_LIFETIME_US,
-            clock_domain: self.network.clock.domain,
+            expires,
+            clock_domain: time.domain,
             credit: 0,
             path: self.paths[0],
             flags: 0,
             payload: Vec::new(),
-        }
+        })
     }
 
     fn receive(&mut self) -> io::Result<()> {
-        for packet in self.network.receive()? {
+        let packets = self.network.receive()?;
+        if let Some(time) = self.network.time() {
+            if self.clock_domain != Some(time.domain) {
+                // 基準ノードの再起動前の枠・ACKを、新しい時計の世代へ持ち越さない。
+                self.allowances = Default::default();
+                self.requests = Default::default();
+                self.pending.clear();
+                self.clock_domain = Some(time.domain);
+            }
+        }
+        for packet in packets {
             if packet.destination != self.network.node || packet.source != self.peer || packet.session != self.session {
                 self.invalid_acks += 1;
                 continue;
@@ -134,7 +136,7 @@ impl Client {
                         continue;
                     }
                     let now = self.network.clock.now();
-                    if now < pending.packet.expires {
+                    if now < pending.local_deadline {
                         self.traffic[index].acknowledged += 1;
                         self.traffic[index].latencies.push(now - pending.started);
                     }
@@ -147,13 +149,19 @@ impl Client {
     }
 
     fn replenish(&mut self, deadlines: [u64; 2], enabled: [bool; 2]) {
-        let now = self.network.clock.now();
+        let Some(time) = self.network.time() else {
+            return;
+        };
+        let now = time.local;
         for class in [Class::Short, Class::Bulk] {
             let index = class.index();
             if !enabled[index] {
                 continue;
             }
-            self.allowances[index].retain(|allowance| allowance.used < allowance.count && allowance.expires >= now + deadlines[index]);
+            let Some(required_deadline) = time.deadline(now + deadlines[index]) else {
+                continue;
+            };
+            self.allowances[index].retain(|allowance| allowance.used < allowance.count && allowance.expires >= required_deadline);
             if self.allowances[index].len() >= MAX_ALLOWANCES {
                 continue;
             }
@@ -165,7 +173,9 @@ impl Client {
             if self.requests[index].as_ref().is_some_and(|request| now - request.sent < REQUEST_RETRY_US) {
                 continue;
             }
-            let mut packet = self.packet(class, now);
+            let Some(mut packet) = self.packet(class, time) else {
+                continue;
+            };
             if let Some(request) = &self.requests[index] {
                 packet.message = request.message;
             }
@@ -194,13 +204,23 @@ impl Client {
             self.traffic[index].pending_full += 1;
             return;
         }
-        let Some(credit) = self.allowances[index].iter_mut().find_map(|allowance| allowance.take(expires)) else {
+        let Some(time) = self.network.time() else {
+            self.traffic[index].unsynchronized += 1;
+            return;
+        };
+        let Some(mut packet) = self.packet(offer.class, time) else {
+            return;
+        };
+        let Some(wire_deadline) = time.deadline(expires).filter(|deadline| *deadline > time.latest) else {
+            self.traffic[index].unsynchronized += 1;
+            return;
+        };
+        let Some(credit) = self.allowances[index].iter_mut().find_map(|allowance| allowance.take(wire_deadline)) else {
             self.traffic[index].no_credit += 1;
             return;
         };
-        let mut packet = self.packet(offer.class, now);
         packet.kind = Kind::Data;
-        packet.expires = expires;
+        packet.expires = wire_deadline;
         packet.credit = credit;
         packet.payload = (0..offer.size).map(|offset| (packet.message.wrapping_add(offset as u64) & 0xff) as u8).collect();
         self.network.enqueue(packet.clone());
@@ -225,13 +245,17 @@ impl Client {
                 started: offer.due,
                 retry_at: now + RETRY_INTERVAL_US,
                 retries: offer.retries,
+                local_deadline: expires,
             },
         );
     }
 
     fn retry(&mut self) {
         let now = self.network.clock.now();
-        self.pending.retain(|_, pending| pending.packet.expires > now);
+        self.pending.retain(|_, pending| pending.local_deadline > now);
+        if self.network.time().is_none() {
+            return;
+        }
         for pending in self.pending.values_mut() {
             if pending.retries == 0 || pending.retry_at > now {
                 continue;
@@ -285,6 +309,7 @@ pub fn run_benchmark(options: Benchmark) -> io::Result<()> {
         redundant_bytes: 0,
         duplicate_acks: 0,
         invalid_acks: 0,
+        clock_domain: None,
     };
     let enabled = options.rates.map(|rate| rate != 0);
     loop {
@@ -352,6 +377,7 @@ pub fn run_benchmark(options: Benchmark) -> io::Result<()> {
     let mut report = client.network.report();
     report["benchmark"] = serde_json::json!({
         "duration_us": options.duration_us,
+        "elapsed_us": client.network.clock.now() - start,
         "setup_us": start - setup_start,
         "paths": client.paths,
         "replica_bytes_per_second": options.replica_bytes_per_second,
@@ -366,27 +392,6 @@ pub fn run_benchmark(options: Benchmark) -> io::Result<()> {
         "bulk": traffic_report(&client.traffic[1])
     });
     write_json(&options.output, &report)
-}
-
-fn traffic_report(metrics: &TrafficMetrics) -> serde_json::Value {
-    let mut report = serde_json::to_value(metrics).expect("整数だけの検証結果");
-    let mut sorted = metrics.latencies.clone();
-    sorted.sort_unstable();
-    let percentile = |percent: usize| -> Option<u64> {
-        if sorted.is_empty() {
-            None
-        } else {
-            Some(sorted[(sorted.len() * percent).div_ceil(100).saturating_sub(1)])
-        }
-    };
-    report["deadline_misses"] = (metrics.offered - metrics.acknowledged).into();
-    report["on_time_ratio"] = if metrics.offered == 0 {
-        serde_json::Value::Null
-    } else {
-        (metrics.acknowledged as f64 / metrics.offered as f64).into()
-    };
-    report["rtt_us"] = serde_json::json!({"p50":percentile(50),"p99":percentile(99),"max":sorted.last()});
-    report
 }
 
 fn validate(options: &Benchmark) -> Result<(), &'static str> {

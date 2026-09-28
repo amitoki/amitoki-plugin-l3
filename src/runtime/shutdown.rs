@@ -16,6 +16,6 @@ pub fn install_shutdown() -> std::io::Result<()> {
     Ok(())
 }
 
-pub(super) fn requested() -> bool {
+pub(crate) fn requested() -> bool {
     STOP.load(Ordering::Relaxed)
 }

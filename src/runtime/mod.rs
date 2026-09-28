@@ -1,13 +1,22 @@
 mod client;
 mod node;
-mod shutdown;
+pub(crate) mod shutdown;
+mod synchronization;
 pub use client::{run_benchmark, Benchmark};
 pub use node::{run_node, NodeOptions};
 pub use shutdown::install_shutdown;
 
-use crate::{clock::Clock, config::Config, ethernet::Ethernet, packet::Packet, scheduler::Scheduler};
+use crate::{
+    clock::Clock,
+    config::Config,
+    ethernet::Ethernet,
+    packet::Packet,
+    scheduler::Scheduler,
+    sync::{Reading, SYNC_TIMEOUT_US},
+};
 use serde::Serialize;
 use std::{collections::HashMap, io, path::Path};
+use synchronization::Synchronization;
 
 // 一つの受信キューだけで他の経路と期限処理を飢餓させない。
 const RECEIVE_BURST: usize = 32;
@@ -25,6 +34,8 @@ pub struct NetworkMetrics {
     pub no_route: u64,
     pub hop_limit: u64,
     pub send_errors: u64,
+    pub unsynchronized: u64,
+    pub sync_sent: u64,
 }
 
 pub struct Network {
@@ -35,12 +46,14 @@ pub struct Network {
     queues: Vec<Scheduler>,
     pub metrics: NetworkMetrics,
     pub clock: Clock,
+    synchronization: Synchronization,
 }
 
 impl Network {
     fn open(config: Config) -> io::Result<Self> {
         config.validate().map_err(io::Error::other)?;
-        let clock = Clock::local()?;
+        let clock = Clock::with_simulation(config.clock.simulation)?;
+        let synchronization = Synchronization::new(&config, clock.domain, clock.now());
         let mut links = Vec::new();
         let mut names = Vec::new();
         let mut queues = Vec::new();
@@ -67,11 +80,16 @@ impl Network {
             queues,
             metrics: NetworkMetrics::default(),
             clock,
+            synchronization,
         })
     }
 
     fn receive(&mut self) -> io::Result<Vec<Packet>> {
+        for request in self.synchronization.requests(self.clock.now()) {
+            self.enqueue(request);
+        }
         let mut packets = Vec::new();
+        let mut synchronization_packets = Vec::new();
         for link in &self.links {
             for _ in 0..RECEIVE_BURST {
                 let Some(received) = link.receive()? else {
@@ -85,23 +103,28 @@ impl Network {
                     },
                 };
                 self.metrics.received += 1;
-                let now = self.clock.now();
-                if packet.clock_domain != self.clock.domain {
-                    self.metrics.wrong_clock += 1;
-                    continue;
-                }
-                if packet.expires <= now {
-                    self.metrics.expired += 1;
-                    continue;
-                }
-                if !packet.valid_at(now, self.clock.domain) {
-                    self.metrics.lifetime_rejected += 1;
+                if packet.is_sync() {
+                    synchronization_packets.push(packet);
                     continue;
                 }
                 packets.push(packet);
             }
         }
+        for packet in synchronization_packets {
+            if packet.destination != self.node {
+                self.forward(packet);
+            } else if let Some(reply) = self.synchronization.receive(&packet, self.clock.now()) {
+                self.enqueue(reply);
+            }
+        }
+        // 同じ受信バッチで基準ノードが再起動しても、旧世代のDATA/GRANTを返さない。
+        let reading = self.time();
+        packets.retain(|packet| accept_data(&mut self.metrics, packet, reading));
         Ok(packets)
+    }
+
+    fn time(&self) -> Option<Reading> {
+        self.synchronization.reading(self.clock.now())
     }
 
     fn enqueue(&mut self, packet: Packet) {
@@ -109,7 +132,20 @@ impl Network {
             self.metrics.no_route += 1;
             return;
         };
-        self.queues[*index].enqueue(packet, self.clock.now());
+        let now = self.clock.now();
+        let expires = if packet.is_sync() {
+            now + SYNC_TIMEOUT_US
+        } else {
+            let reading = self.synchronization.reading(now);
+            if !accept_data(&mut self.metrics, &packet, reading) {
+                return;
+            }
+            let Some(expires) = reading.and_then(|reading| reading.local_deadline(packet.expires)) else {
+                return;
+            };
+            expires
+        };
+        self.queues[*index].enqueue_until(packet, now, expires);
     }
 
     fn forward(&mut self, mut packet: Packet) {
@@ -124,15 +160,25 @@ impl Network {
     fn flush(&mut self) -> io::Result<()> {
         for (link, queue) in self.links.iter().zip(&mut self.queues) {
             for _ in 0..TRANSMIT_BURST {
-                let Some(packet) = queue.pop(self.clock.now()) else {
+                let Some(mut packet) = queue.pop(self.clock.now()) else {
                     break;
                 };
+                let now = self.clock.now();
+                if packet.is_sync() {
+                    self.synchronization.stamp_reply(&mut packet, now);
+                } else if !accept_data(&mut self.metrics, &packet, self.synchronization.reading(now)) {
+                    continue;
+                }
                 match link.send(&packet) {
                     Ok(()) => {
                         self.metrics.sent += 1;
                         self.metrics.wire_bytes += packet.wire_size() as u64;
+                        self.metrics.sync_sent += u64::from(packet.is_sync());
                     },
-                    Err(error) if matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted) => self.metrics.send_errors += 1,
+                    Err(error) if matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted) || error.raw_os_error() == Some(libc::ENOBUFS) => {
+                        // qdiscの破棄や一時的な送信バッファ不足はパケット損失として扱う。
+                        self.metrics.send_errors += 1;
+                    },
                     Err(error) => return Err(error),
                 }
             }
@@ -166,10 +212,29 @@ impl Network {
         serde_json::json!({
             "node": self.node,
             "clock_domain": self.clock.domain,
+            "clock_simulation": self.clock.simulation(),
+            "clock_sync": self.synchronization.report(self.clock.now()),
             "network": self.metrics,
             "queues": queues
         })
     }
+}
+
+fn accept_data(metrics: &mut NetworkMetrics, packet: &Packet, reading: Option<Reading>) -> bool {
+    let Some(reading) = reading else {
+        metrics.unsynchronized += 1;
+        return false;
+    };
+    if packet.clock_domain != reading.domain {
+        metrics.wrong_clock += 1;
+    } else if packet.expires <= reading.latest {
+        metrics.expired += 1;
+    } else if !packet.valid_at(reading.latest, reading.domain) {
+        metrics.lifetime_rejected += 1;
+    } else {
+        return true;
+    }
+    false
 }
 
 fn write_json(path: &Path, report: &serde_json::Value) -> io::Result<()> {

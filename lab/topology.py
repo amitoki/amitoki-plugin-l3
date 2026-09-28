@@ -55,3 +55,35 @@ def impair_primary(*, delay_ms=0, loss=False):
         command("tc", "qdisc", "replace", "dev", "r1b", "root", "netem", "delay", f"{delay_ms}ms")
     elif loss:
         command("tc", "qdisc", "replace", "dev", "r1b", "root", "netem", "loss", "100%")
+
+
+def configure_clocks(directory, scenario):
+    # 同じカーネルの時計で暗黙に動いてしまう実装を検出する。
+    offsets = {"a": 5_000_000, "b": -3_000_000, "r1": 1_500_000, "r2": -500_000}
+    for name, offset in offsets.items():
+        path = directory / f"{name}.json"
+        config = json.loads(path.read_text())
+        config["clock"] = {
+            "authority": 2,
+            "max_age_us": 200_000 if scenario.stop_clock_replies else 1_000_000,
+            "simulation": {"offset_us": offset, "drift_ppm": scenario.clock_drift_ppm * (1 if name in ("a", "r1") else -1)},
+        }
+        if name == "b":
+            config["routes"] += [
+                {"destination": 11, "path": 1, "interface": "b1"},
+                {"destination": 12, "path": 2, "interface": "b2"},
+            ]
+        path.write_text(json.dumps(config, indent=2) + "\n")
+
+
+def block_clock_replies():
+    for interface in ("b1", "b2"):
+        command("tc", "qdisc", "add", "dev", interface, "clsact")
+        # tc u32のoffsetはEthernet payloadの先頭。kind=6の同期応答だけを落とす。
+        command("tc", "filter", "add", "dev", interface, "egress", "protocol", "0x88b5",
+                "u32", "match", "u8", "6", "0xff", "at", "5", "action", "drop")
+
+
+def restore_clock_replies():
+    for interface in ("b1", "b2"):
+        command("tc", "qdisc", "del", "dev", interface, "clsact")

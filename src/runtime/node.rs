@@ -17,6 +17,7 @@ pub fn run_node(options: NodeOptions) -> io::Result<()> {
     let mut network = Network::open(options.config)?;
     let start = network.clock.now();
     let mut receiver = options.receiver_rates.map(|rates| Receiver::new(rates, start));
+    let mut domain = network.time().map(|reading| reading.domain);
     let end = start + options.duration_us;
     let mut prune_at = start + PRUNE_INTERVAL_US;
     write_json(&options.ready, &serde_json::json!({"node":network.node,"clock_domain":network.clock.domain,"ready":true}))?;
@@ -31,10 +32,16 @@ pub fn run_node(options: NodeOptions) -> io::Result<()> {
                 continue;
             }
             if let Some(receiver) = &mut receiver {
-                let now = network.clock.now();
+                let Some(time) = network.time() else {
+                    continue;
+                };
+                if domain != Some(time.domain) {
+                    *receiver = Receiver::new(options.receiver_rates.expect("受信ノード"), time.local);
+                    domain = Some(time.domain);
+                }
                 let response = match packet.kind {
-                    Kind::Request => receiver.grant(&packet, now),
-                    Kind::Data => receiver.receive(&packet, now),
+                    Kind::Request => receiver.grant_at(&packet, time),
+                    Kind::Data => receiver.receive(&packet, time.latest),
                     _ => None,
                 };
                 if let Some(response) = response {
@@ -45,7 +52,9 @@ pub fn run_node(options: NodeOptions) -> io::Result<()> {
         let now = network.clock.now();
         if now >= prune_at {
             if let Some(receiver) = &mut receiver {
-                receiver.prune(now);
+                if let Some(time) = network.time() {
+                    receiver.prune(time.earliest);
+                }
             }
             prune_at = now + PRUNE_INTERVAL_US;
         }

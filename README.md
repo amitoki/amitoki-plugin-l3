@@ -6,7 +6,7 @@ Ethernetの直上に独自ヘッダを載せ、短文の優先転送、受信側
 
 ## 比較試験を実行する
 
-Linux、Rust、Docker Engineを使う。Rustの準備は[本体のビルド手順](../../readme.md#ビルドする)、Dockerは[公式のUbuntu向け導入手順](https://docs.docker.com/engine/install/ubuntu/)を参照する。このcrate単体のビルドにはNode.jsとプラグインのsubmodule取得は不要。
+Linux、Rust、Docker Engineを使う。Ubuntuでの導入コマンドは[比較環境の準備](comparison.md#準備する)を参照する。このcrate単体のビルドにはNode.jsとプラグインのsubmodule取得は不要。
 
 リポジトリのルートで実行する。Dockerを実行できるユーザーで使う。
 
@@ -17,7 +17,7 @@ bash scripts/test-l3.sh
 
 スクリプトがreleaseビルドと試験用イメージの作成を行い、外部非接続のコンテナを起動する。コンテナ内にだけvethと遅延設定を作り、終了時に削除する。イメージの初回ビルドではパッケージの取得にネットワーク接続を使う。
 
-既定は12条件を各3秒・3回。短い確認は次で実行する。CIも同じ設定を使う。
+既定は18条件を各3秒・3回。短い確認は次で実行する。CIも同じ設定を使う。
 
 ```bash
 L3_REPETITIONS=1 L3_DURATION_MS=1000 bash scripts/test-l3.sh artifacts/l3/quick
@@ -61,6 +61,10 @@ flowchart LR
 | `receiver_limited` | 受信側が毎秒20件に送信枠を制限すること |
 | `retry_delayed` | 8ms遅延・再送1回でも重複配送しないこと |
 | `missing_router` | ルーターなしでは到達しないこと |
+| `clock_offsets` / `clock_drift` | 数秒の時計差と、相対400ppmの進み方の差があっても同期すること |
+| `clock_asymmetric` | 片方向1msの遅延を誤差区間に含めて通信すること |
+| `clock_holdover` / `clock_recovery` | 同期断で送信を止め、同期が戻ったら再開すること |
+| `clock_too_uncertain` | 誤差が上限を超える経路では期限付き通信を止めること |
 
 主経路の遅延・欠落はR1からBへの片方向に設定する。逆方向は正常。2経路の分だけ利用できる資源も増えるため、帯域の等しい1経路との性能比較にはなっていない。
 
@@ -72,7 +76,7 @@ JSONの `benchmark.*.sent` は、有効な送信枠を消費して転送処理�
 
 ## 送信枠・優先キュー・期限を順に適用する
 
-1. 送信側が `REQUEST` を送り、受信側が許可した件数を `GRANT` で返す。開始時の交換を終えてから計測する。
+1. 時計同期を設定した場合は基準ノードとの時刻交換を行う。送信側が `REQUEST` を送り、受信側が許可した件数を `GRANT` で返す。開始時の交換を終えてから計測する。
 2. 送信側が枠を1件消費し、メッセージID・期限・本文を持つ `DATA` を出す。枠がなければその送信予定分を失敗に数える。
 3. ルーターは時計、期限、hop数を確認し、宛先と経路IDで次のリンクを選ぶ。各出力の有界キューと帯域制限を通して転送する。
 4. 受信側が枠と本文を検証する。最初の有効な到着だけを配送として数え、本文のfingerprintを `ACK` で返す。
@@ -94,7 +98,7 @@ EtherTypeはLocal Experimentalの `0x88B5`、識別子は `AMTK`、プロトコ�
 |---:|---:|---|
 | 0 | 4 | magic `AMTK` |
 | 4 | 1 | version |
-| 5 | 1 | kind: DATA=1 / ACK=2 / REQUEST=3 / GRANT=4 |
+| 5 | 1 | kind: DATA=1 / ACK=2 / REQUEST=3 / GRANT=4 / SYNC_REQUEST=5 / SYNC_REPLY=6 |
 | 6 | 1 | class: short=0 / bulk=1 |
 | 7 | 1 | hops: 初期値16、ルーターごとに減算 |
 | 8 / 12 | 各4 | source / destinationノードID |
@@ -108,7 +112,7 @@ EtherTypeはLocal Experimentalの `0x88B5`、識別子は `AMTK`、プロトコ�
 
 ACKの本文は8バイトのFNV-1a fingerprint。REQUESTとGRANTには本文がない。checksumとfingerprintは破損検出・一致確認用で、送信元認証には使わない。
 
-時計はLinuxの `CLOCK_MONOTONIC`。boot IDとtime namespaceの識別子を合わせたドメインが一致しないパケットを拒否する。期限が1秒を超えて先のものも拒否する。**現状は同一カーネル・同一time namespaceでの実験に限定**しており、別VM・別マシン間の時計同期は未実装。1台のVM内でこのDocker試験を動かす構成は使える。
+時計はLinuxの `CLOCK_BOOTTIME`。`clock.authority`を全ノードに設定すると、独自L3の時刻交換で別VM・別マシンにも対応する。OS時計は変更しない。誤差が大きいときや同期の失効時はDATA・ACK・送信枠の交換を止め、同期パケットは通す。[時計同期の設計と設定](clock-sync.md)を参照。設定を省略した場合は同じboot ID・time namespaceの実験だけを許可する。期限が1秒を超えて先の通常パケットは拒否する。
 
 JSON設定はノードID、リンクの相手MAC、宛先と経路ID、出力ごとの帯域を指定する。例はR1の設定。インターフェース自体は事前に作成しておく。
 
@@ -124,7 +128,8 @@ JSON設定はノードID、リンクの相手MAC、宛先と経路ID、出力ご
     {"destination": 2, "path": 1, "interface": "r1b"}
   ],
   "scheduler": "priority",
-  "bytes_per_second": 125000
+  "bytes_per_second": 125000,
+  "clock": {"authority": 2}
 }
 ```
 
@@ -141,8 +146,8 @@ target/release/amitoki-l3 bench --help
 
 この試作は生成した本文を送り、受信・ACKまでを検証する実験プログラム。アプリケーションへ任意の本文を渡すAPI、TCPのような順序付きストリーム、フラグメント、動的経路探索、暗号化・認証は持たない。通常のIPルーターを通してインターネットへ送る仕組みも含まない。
 
-本体のRelay/Stageにはまだ組み込んでいない。本体は未知のEtherTypeのフレームも扱えるため、後から解析Stageや中継経路との組み合わせを試せる。ただし今回の時計制約を解決するまで、別マシン間への配送には使えない。
+本体のRelay/Stageにはまだ組み込んでいない。本体は未知のEtherTypeのフレームも扱えるため、後から解析Stageや中継経路との組み合わせを試せる。別マシンへの試験では全ノードに同じ時計の基準ノードを指定する。
 
-実装はAF_PACKETを使うユーザー空間のルーター。キューがある間と1ms未満の待機はbusy waitを使うため、CPU使用率は高くなる。物理NICの最大性能、AF_XDP、UDPとの同条件比較は未検証。今回の試験では、同じ実装・同じ負荷で機能を切り替えた差を見る。
+実装はAF_PACKETを使うユーザー空間のルーター。キューがある間と1ms未満の待機はbusy waitを使うため、CPU使用率は高くなる。物理NICの最大性能とAF_XDPは未検証。[UDP/IPv4との比較と別VM試験](comparison.md)では、同じEthernet上でLinux UDP socketと比較できる。単純転送の性能と、混雑時の期限内ACK率を分けて測る。
 
 受信側の許可と短文優先は[Homa](https://arxiv.org/abs/1803.09615)、複製と重複排除は[DetNetの設計](https://www.rfc-editor.org/rfc/rfc8655)を参考にしている。いずれのプロトコルの実装でもない。

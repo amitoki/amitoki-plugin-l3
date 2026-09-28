@@ -1,5 +1,6 @@
 use crate::{
     packet::{credit_parts, credit_token, fingerprint, Class, Kind, Packet, MAX_LIFETIME_US},
+    sync::Reading,
     tokens::TokenBucket,
 };
 use serde::Serialize;
@@ -64,11 +65,15 @@ impl Receiver {
     }
 
     pub fn grant(&mut self, request: &Packet, now: u64) -> Option<Packet> {
+        self.grant_at(request, Reading::exact(now, request.clock_domain))
+    }
+
+    pub fn grant_at(&mut self, request: &Packet, time: Reading) -> Option<Packet> {
         self.metrics.requests += 1;
-        if request.kind != Kind::Request || request.expires <= now {
+        if request.kind != Kind::Request || request.expires <= time.latest || request.clock_domain != time.domain {
             return None;
         }
-        self.prune(now);
+        self.prune(time.earliest);
         let existing =
             self.grants.iter().find(|(_, grant)| (grant.source, grant.session, grant.request, grant.class) == (request.source, request.session, request.message, request.class));
         let (id, count, expires) = if let Some((id, grant)) = existing {
@@ -78,14 +83,14 @@ impl Receiver {
                 self.metrics.throttled += 1;
                 return None;
             }
-            let count = self.capacity[request.class.index()].take_up_to(u64::from(GRANT_BATCH), now) as u32;
+            let count = self.capacity[request.class.index()].take_up_to(u64::from(GRANT_BATCH), time.local) as u32;
             if count == 0 {
                 self.metrics.throttled += 1;
                 return None;
             }
             let id = self.next_grant;
             self.next_grant += 1;
-            let expires = now.checked_add(MAX_LIFETIME_US)?;
+            let expires = time.deadline(time.local.checked_add(MAX_LIFETIME_US)?)?;
             self.grants.insert(
                 id,
                 Grant {

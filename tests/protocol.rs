@@ -337,3 +337,43 @@ fn token_buckets_bound_bursts_and_do_not_mint_tokens_when_time_moves_backwards()
     assert!(!bucket.take(1, NOW + 100_000));
     assert_eq!(bucket.take_up_to(100, NOW + 100_000_000), 10);
 }
+
+#[test]
+fn clock_exchanges_round_trip_with_fixed_lengths_and_without_data_expiration() {
+    for (kind, length) in [(Kind::SyncRequest, 8), (Kind::SyncReply, 24)] {
+        let original = Packet {
+            kind,
+            expires: 0,
+            payload: vec![0; length],
+            ..packet(1)
+        };
+        assert_eq!(Packet::decode(&original.encode().unwrap()).unwrap(), original);
+        for invalid in [
+            Packet {
+                payload: vec![0; length - 1],
+                ..original.clone()
+            },
+            Packet { expires: NOW, ..original.clone() },
+            Packet {
+                class: Class::Bulk,
+                ..original.clone()
+            },
+            Packet { credit: 1, ..original.clone() },
+        ] {
+            assert!(invalid.encode().is_err());
+        }
+    }
+}
+
+#[test]
+fn queue_uses_local_expiration_without_rewriting_the_wire_deadline() {
+    let original = Packet {
+        expires: NOW + 5_000_000,
+        ..packet(1)
+    };
+    let mut queue = Scheduler::new(Scheduling::Priority, 1_000_000, NOW);
+    assert!(queue.enqueue_until(original.clone(), NOW, NOW + 100));
+    assert_eq!(queue.pop(NOW + 50).unwrap().expires, original.expires);
+    assert!(queue.enqueue_until(original, NOW, NOW + 100));
+    assert!(queue.pop(NOW + 100).is_none());
+}

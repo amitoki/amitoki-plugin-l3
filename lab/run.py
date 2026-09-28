@@ -9,17 +9,18 @@ import platform
 import signal
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from capture import Capture
 from scenarios import SCENARIOS
-from topology import command, configure, create_links, impair_primary, remove_links
+from topology import block_clock_replies, command, configure, configure_clocks, create_links, impair_primary, remove_links, restore_clock_replies
 
 # 起動はreadyファイルで確認する。この値は準備失敗の打切り上限。
 READY_TIMEOUT_SECONDS = 5
 PROCESS_TIMEOUT_SECONDS = 5
 
 
-def wait_ready(processes, directory):
+def wait_ready(processes, directory, *, different_clocks=False):
     deadline = time.monotonic() + READY_TIMEOUT_SECONDS
     while time.monotonic() < deadline:
         if any(process.poll() is not None for _, process in processes):
@@ -30,7 +31,7 @@ def wait_ready(processes, directory):
         except (FileNotFoundError, json.JSONDecodeError):
             time.sleep(0.01)
             continue
-        if len({entry["clock_domain"] for entry in ready}) != 1:
+        if not different_clocks and len({entry["clock_domain"] for entry in ready}) != 1:
             raise RuntimeError("時計ドメインが一致しません")
         return
     raise RuntimeError(f"ノードの準備待ちがタイムアウトしました: {directory}")
@@ -54,6 +55,8 @@ def stop_processes(processes):
 def execute_scenario(arguments, scenario, directory):
     directory.mkdir()
     configure(directory, scenario.scheduler)
+    if scenario.clock_sync:
+        configure_clocks(directory, scenario)
     create_links()
     processes = []
     logs = []
@@ -71,20 +74,34 @@ def execute_scenario(arguments, scenario, directory):
             log = (directory / f"{name}.log").open("w")
             logs.append(log)
             processes.append((name, subprocess.Popen(invocation, stdout=log, stderr=subprocess.STDOUT)))
-        wait_ready(processes, directory)
+        wait_ready(processes, directory, different_clocks=scenario.clock_sync)
         invocation = [arguments.binary, "bench", "--config", str(directory / "a.json"), "--peer", "2",
                       "--duration-ms", str(arguments.duration_ms), "--bulk-rate", str(scenario.bulk_rate),
                       "--paths", scenario.paths, "--replica-bytes-per-second", str(scenario.replica_budget),
                       "--short-deadline-us", str(scenario.short_deadline_us), "--retries", str(scenario.retries),
                       "--output", str(directory / "a.report.json")]
-        with Capture(directory / "sample.pcap") as capture:
+        def interrupt_clock():
+            time.sleep(0.4)
+            block_clock_replies()
+            if scenario.recover_clock_replies:
+                time.sleep(0.4)
+                restore_clock_replies()
+
+        with Capture(directory / "sample.pcap") as capture, ThreadPoolExecutor(max_workers=1) as workers:
+            interruption = workers.submit(interrupt_clock) if scenario.stop_clock_replies else None
             completed = subprocess.run(invocation, capture_output=True, text=True, timeout=arguments.duration_ms / 1000 + 10)
+            if interruption:
+                interruption.result()
         (directory / "a.log").write_text(completed.stdout + completed.stderr)
         stop_processes(processes)
         processes = []
-        if not scenario.router:
+        if not scenario.router or scenario.expect_unreachable:
             if completed.returncode == 0 or "credit" not in completed.stderr:
-                raise RuntimeError("ルーター不在で通信できてしまいました")
+                raise RuntimeError("到達不能の条件で通信できてしまいました")
+            if scenario.clock_sync:
+                router = json.loads((directory / "r1.report.json").read_text())
+                if router["clock_sync"]["reading"] is not None:
+                    raise RuntimeError("誤差が上限を超えた時計が有効になっています")
             return {"scenario":asdict(scenario), "expected_unreachable":True, "captured":capture.count}
         if completed.returncode:
             raise RuntimeError(f"送信側の終了値が{completed.returncode}: {completed.stderr}")
@@ -110,7 +127,9 @@ def verify(scenario, reports):
         raise RuntimeError("受信側が送信枠を過剰に発行しています")
     if sender["invalid_acks"] or receiver["rejected"]:
         raise RuntimeError("ACKまたはcreditの整合性が崩れました")
-    if any(report["network"]["wrong_clock"] or report["network"]["malformed"] or report["network"]["send_errors"] for report in reports.values()):
+    if any(report["network"]["wrong_clock"] or report["network"]["malformed"] or
+           (report["network"]["send_errors"] and not (scenario.stop_clock_replies and name == "b"))
+           for name, report in reports.items()):
         raise RuntimeError("時計・パケット・socketのエラーがあります")
     for index, name in enumerate(("short", "bulk")):
         traffic = sender[name]
@@ -131,6 +150,22 @@ def verify(scenario, reports):
             raise RuntimeError("利用可能な経路で短文が一件も届きませんでした")
     if scenario.name in ("dual_duplicates", "retry_delayed") and receiver["duplicates"] == 0:
         raise RuntimeError("重複の実通信を確認できませんでした")
+    if scenario.clock_sync:
+        if len({report["clock_domain"] for report in reports.values()}) != 4:
+            raise RuntimeError("時計をずらした4ノードで検証できていません")
+        if sender["short"]["acknowledged"] == 0:
+            raise RuntimeError("同期後にパケットが届きませんでした")
+        for name in ("a", "r1", "r2"):
+            synchronization = reports[name]["clock_sync"]
+            if synchronization["samples"]["accepted"] == 0:
+                raise RuntimeError(f"{name}の時計交換が成功していません")
+            if scenario.stop_clock_replies and not scenario.recover_clock_replies:
+                if synchronization["reading"] is not None:
+                    raise RuntimeError("同期の失効後も期限判断を続けています")
+            elif synchronization["reading"] is None:
+                raise RuntimeError(f"{name}が時計同期を維持できませんでした")
+        if scenario.stop_clock_replies and sender["short"]["unsynchronized"] == 0:
+            raise RuntimeError("同期の失効時に送信を停止していません")
 
 
 def make_report(directory, outcomes):
@@ -147,7 +182,7 @@ def make_report(directory, outcomes):
         bench = outcome["reports"]["a"]["benchmark"]
         traffic = bench["short"]
         lines.append(f"| {name} | {outcome['repetition']} | {traffic['on_time_ratio']:.1%} | {traffic['rtt_us']['p50']} / {traffic['rtt_us']['p99']} | {bench['replicas']} | {outcome['reports']['b']['receiver']['duplicates']} |")
-    lines += ["", "これは実験用Rustルーターの比較。物理NICの最大性能、AF_XDP、UDPとの同条件比較、別マシンの時計同期は未検証。", ""]
+    lines += ["", "clock_*条件は4ノードの時計を別々にずらして同期する。物理NIC・AF_XDPは未検証。UDP比較と別VM試験は別スクリプトを使用。", ""]
     (directory / "report.md").write_text("\n".join(lines))
 
 
@@ -183,7 +218,7 @@ def main():
         verification = {"status":"passed", "runs":len(outcomes), "repetitions":arguments.repetitions,
                         "duration_ms":arguments.duration_ms, "kernel":platform.release(), "machine":platform.machine(),
                         "ether_type":"0x88b5", "external_network":False, "link_ip_addresses":False,
-                        "clock":"same-kernel CLOCK_MONOTONIC; boot_id and time namespace fingerprint",
+                        "clock":"CLOCK_BOOTTIME; shared clock and four-timestamp synchronization with simulated offset/drift",
                         "binary_version":command(arguments.binary, "--version").strip(),
                         "binary_sha256":binary_sha256}
         (arguments.directory / "verification.json").write_text(json.dumps(verification, indent=2) + "\n")
