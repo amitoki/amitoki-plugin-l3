@@ -1,0 +1,1244 @@
+{
+  "scope": "機能検証。各条件1回。L3内部の構成比較で、TCP/SRDとの性能比較ではない。",
+  "source_commit": "1d4f6ab",
+  "container": {
+    "measurements": [
+      {
+        "mode": "baseline",
+        "fault": false,
+        "restored": false,
+        "delivered": 1800,
+        "elapsed_us": 3001438,
+        "retransmissions": 904,
+        "short_ack_max_us": 3260,
+        "short_ack_p99_upper_us": 1919,
+        "trimmed": 0,
+        "paths": [
+          [
+            {
+              "acknowledged": 895,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953308603253,
+              "last_feedback_us": 953308603253,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 1825,
+              "rtt_us": 178,
+              "sent": 900,
+              "signal": {
+                "available_bytes_per_second": 0,
+                "capacity_bytes_per_second": 0,
+                "node": 0,
+                "queue_us": 0
+              },
+              "timeouts": 5
+            },
+            {
+              "acknowledged": 5,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953307685380,
+              "last_feedback_us": 953308526989,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 1826,
+              "rtt_us": 1616,
+              "sent": 5,
+              "signal": {
+                "available_bytes_per_second": 0,
+                "capacity_bytes_per_second": 0,
+                "node": 0,
+                "queue_us": 0
+              },
+              "timeouts": 0
+            }
+          ],
+          [
+            {
+              "acknowledged": 1,
+              "disabled_until_us": 953308705395,
+              "in_flight_bytes": 0,
+              "last_data_us": 953305609466,
+              "last_feedback_us": 953308527067,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 1902,
+              "rtt_us": 1871,
+              "sent": 900,
+              "signal": {
+                "available_bytes_per_second": 0,
+                "capacity_bytes_per_second": 0,
+                "node": 0,
+                "queue_us": 0
+              },
+              "timeouts": 899
+            },
+            {
+              "acknowledged": 899,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953308605519,
+              "last_feedback_us": 953308605519,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 1825,
+              "rtt_us": 227,
+              "sent": 899,
+              "signal": {
+                "available_bytes_per_second": 0,
+                "capacity_bytes_per_second": 0,
+                "node": 0,
+                "queue_us": 0
+              },
+              "timeouts": 0
+            }
+          ]
+        ]
+      },
+      {
+        "mode": "adaptive",
+        "fault": false,
+        "restored": false,
+        "delivered": 1800,
+        "elapsed_us": 2998969,
+        "retransmissions": 23,
+        "short_ack_max_us": 1478,
+        "short_ack_p99_upper_us": 959,
+        "trimmed": 0,
+        "paths": [
+          [
+            {
+              "acknowledged": 32,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953309314642,
+              "last_feedback_us": 953312018714,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 1197,
+              "rtt_us": 1168,
+              "sent": 32,
+              "signal": {
+                "available_bytes_per_second": 0,
+                "capacity_bytes_per_second": 0,
+                "node": 0,
+                "queue_us": 0
+              },
+              "timeouts": 0
+            },
+            {
+              "acknowledged": 868,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953312100965,
+              "last_feedback_us": 953312100965,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 1198,
+              "rtt_us": 269,
+              "sent": 868,
+              "signal": {
+                "available_bytes_per_second": 0,
+                "capacity_bytes_per_second": 0,
+                "node": 0,
+                "queue_us": 0
+              },
+              "timeouts": 0
+            }
+          ],
+          [
+            {
+              "acknowledged": 16,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953310586713,
+              "last_feedback_us": 953312018715,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 1196,
+              "rtt_us": 1189,
+              "sent": 33,
+              "signal": {
+                "available_bytes_per_second": 0,
+                "capacity_bytes_per_second": 0,
+                "node": 0,
+                "queue_us": 0
+              },
+              "timeouts": 17
+            },
+            {
+              "acknowledged": 884,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953312100966,
+              "last_feedback_us": 953312100966,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 1197,
+              "rtt_us": 431,
+              "sent": 890,
+              "signal": {
+                "available_bytes_per_second": 0,
+                "capacity_bytes_per_second": 0,
+                "node": 0,
+                "queue_us": 0
+              },
+              "timeouts": 6
+            }
+          ]
+        ]
+      },
+      {
+        "mode": "feedback",
+        "fault": false,
+        "restored": false,
+        "delivered": 1800,
+        "elapsed_us": 2999405,
+        "retransmissions": 25,
+        "short_ack_max_us": 1447,
+        "short_ack_p99_upper_us": 703,
+        "trimmed": 0,
+        "paths": [
+          [
+            {
+              "acknowledged": 26,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953312676965,
+              "last_feedback_us": 953315487527,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 1630,
+              "rtt_us": 1376,
+              "sent": 26,
+              "signal": {
+                "available_bytes_per_second": 99937000,
+                "capacity_bytes_per_second": 100000000,
+                "node": 1,
+                "queue_us": 22
+              },
+              "timeouts": 0
+            },
+            {
+              "acknowledged": 874,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953315573787,
+              "last_feedback_us": 953315573787,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 1631,
+              "rtt_us": 287,
+              "sent": 874,
+              "signal": {
+                "available_bytes_per_second": 99337000,
+                "capacity_bytes_per_second": 100000000,
+                "node": 1,
+                "queue_us": 11
+              },
+              "timeouts": 0
+            }
+          ],
+          [
+            {
+              "acknowledged": 25,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953315259584,
+              "last_feedback_us": 953315487528,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 1627,
+              "rtt_us": 1167,
+              "sent": 48,
+              "signal": {
+                "available_bytes_per_second": 125000,
+                "capacity_bytes_per_second": 125000,
+                "node": 11,
+                "queue_us": 29
+              },
+              "timeouts": 23
+            },
+            {
+              "acknowledged": 875,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953315573789,
+              "last_feedback_us": 953315573789,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 1628,
+              "rtt_us": 484,
+              "sent": 877,
+              "signal": {
+                "available_bytes_per_second": 500000,
+                "capacity_bytes_per_second": 500000,
+                "node": 12,
+                "queue_us": 19
+              },
+              "timeouts": 2
+            }
+          ]
+        ]
+      },
+      {
+        "mode": "trimming",
+        "fault": false,
+        "restored": false,
+        "delivered": 1800,
+        "elapsed_us": 2998415,
+        "retransmissions": 4,
+        "short_ack_max_us": 1469,
+        "short_ack_p99_upper_us": 831,
+        "trimmed": 0,
+        "paths": [
+          [
+            {
+              "acknowledged": 3,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953316219497,
+              "last_feedback_us": 953319027907,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 792,
+              "rtt_us": 790,
+              "sent": 3,
+              "signal": {
+                "available_bytes_per_second": 62000,
+                "capacity_bytes_per_second": 125000,
+                "node": 11,
+                "queue_us": 18
+              },
+              "timeouts": 0
+            },
+            {
+              "acknowledged": 897,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953319112962,
+              "last_feedback_us": 953319112962,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 794,
+              "rtt_us": 236,
+              "sent": 897,
+              "signal": {
+                "available_bytes_per_second": 99337000,
+                "capacity_bytes_per_second": 100000000,
+                "node": 1,
+                "queue_us": 10
+              },
+              "timeouts": 0
+            }
+          ],
+          [
+            {
+              "acknowledged": 6,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953316356781,
+              "last_feedback_us": 953319027908,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 791,
+              "rtt_us": 859,
+              "sent": 8,
+              "signal": {
+                "available_bytes_per_second": 125000,
+                "capacity_bytes_per_second": 125000,
+                "node": 11,
+                "queue_us": 24
+              },
+              "timeouts": 2
+            },
+            {
+              "acknowledged": 894,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953319112963,
+              "last_feedback_us": 953319112963,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 792,
+              "rtt_us": 485,
+              "sent": 896,
+              "signal": {
+                "available_bytes_per_second": 500000,
+                "capacity_bytes_per_second": 500000,
+                "node": 12,
+                "queue_us": 14
+              },
+              "timeouts": 2
+            }
+          ]
+        ]
+      },
+      {
+        "mode": "trim-pressure",
+        "fault": false,
+        "restored": false,
+        "delivered": 1000,
+        "elapsed_us": 7277136,
+        "retransmissions": 2262,
+        "short_ack_max_us": 3448993,
+        "short_ack_p99_upper_us": 2883583,
+        "trimmed": 2220,
+        "paths": [
+          [
+            {
+              "acknowledged": 1000,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953326870332,
+              "last_feedback_us": 953326870332,
+              "nacks": 2204,
+              "path": 1,
+              "probe_rtt_us": 1766,
+              "rtt_us": 28342,
+              "sent": 3262,
+              "signal": {
+                "available_bytes_per_second": 125000,
+                "capacity_bytes_per_second": 125000,
+                "node": 11,
+                "queue_us": 38003
+              },
+              "timeouts": 58
+            }
+          ],
+          [
+            {
+              "acknowledged": 0,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 0,
+              "last_feedback_us": 0,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 0,
+              "rtt_us": 0,
+              "sent": 0,
+              "signal": {
+                "available_bytes_per_second": 0,
+                "capacity_bytes_per_second": 0,
+                "node": 0,
+                "queue_us": 0
+              },
+              "timeouts": 0
+            }
+          ]
+        ]
+      },
+      {
+        "mode": "full",
+        "fault": false,
+        "restored": false,
+        "delivered": 1800,
+        "elapsed_us": 2998081,
+        "retransmissions": 1,
+        "short_ack_max_us": 1468,
+        "short_ack_p99_upper_us": 767,
+        "trimmed": 0,
+        "paths": [
+          [
+            {
+              "acknowledged": 871,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953330175774,
+              "last_feedback_us": 953330175774,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 667,
+              "rtt_us": 342,
+              "sent": 871,
+              "signal": {
+                "available_bytes_per_second": 100000000,
+                "capacity_bytes_per_second": 100000000,
+                "node": 1,
+                "queue_us": 12
+              },
+              "timeouts": 0
+            },
+            {
+              "acknowledged": 29,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953327279885,
+              "last_feedback_us": 953330091431,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 668,
+              "rtt_us": 724,
+              "sent": 29,
+              "signal": {
+                "available_bytes_per_second": 99937000,
+                "capacity_bytes_per_second": 100000000,
+                "node": 1,
+                "queue_us": 28
+              },
+              "timeouts": 0
+            }
+          ],
+          [
+            {
+              "acknowledged": 2,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953327255213,
+              "last_feedback_us": 953330091431,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 666,
+              "rtt_us": 722,
+              "sent": 3,
+              "signal": {
+                "available_bytes_per_second": 125000,
+                "capacity_bytes_per_second": 125000,
+                "node": 11,
+                "queue_us": 24
+              },
+              "timeouts": 1
+            },
+            {
+              "acknowledged": 898,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953330175777,
+              "last_feedback_us": 953330175777,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 666,
+              "rtt_us": 333,
+              "sent": 898,
+              "signal": {
+                "available_bytes_per_second": 100000000,
+                "capacity_bytes_per_second": 100000000,
+                "node": 1,
+                "queue_us": 20
+              },
+              "timeouts": 0
+            }
+          ]
+        ]
+      },
+      {
+        "mode": "full",
+        "fault": true,
+        "restored": false,
+        "delivered": 1800,
+        "elapsed_us": 12042479,
+        "retransmissions": 171,
+        "short_ack_max_us": 7955,
+        "short_ack_p99_upper_us": 3071,
+        "trimmed": 0,
+        "paths": [
+          [
+            {
+              "acknowledged": 887,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953333672900,
+              "last_feedback_us": 953342644218,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 2601,
+              "rtt_us": 2672,
+              "sent": 889,
+              "signal": {
+                "available_bytes_per_second": 99937000,
+                "capacity_bytes_per_second": 100000000,
+                "node": 1,
+                "queue_us": 16
+              },
+              "timeouts": 2
+            },
+            {
+              "acknowledged": 13,
+              "disabled_until_us": 953333715834,
+              "in_flight_bytes": 0,
+              "last_data_us": 953330781950,
+              "last_feedback_us": 953330781950,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 868,
+              "rtt_us": 263,
+              "sent": 41,
+              "signal": {
+                "available_bytes_per_second": 99337000,
+                "capacity_bytes_per_second": 100000000,
+                "node": 1,
+                "queue_us": 10
+              },
+              "timeouts": 28
+            }
+          ],
+          [
+            {
+              "acknowledged": 868,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953342714416,
+              "last_feedback_us": 953342714416,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 2600,
+              "rtt_us": 19841,
+              "sent": 870,
+              "signal": {
+                "available_bytes_per_second": 125000,
+                "capacity_bytes_per_second": 125000,
+                "node": 11,
+                "queue_us": 21007
+              },
+              "timeouts": 5
+            },
+            {
+              "acknowledged": 32,
+              "disabled_until_us": 953342706643,
+              "in_flight_bytes": 0,
+              "last_data_us": 953330782480,
+              "last_feedback_us": 953330782480,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 853,
+              "rtt_us": 427,
+              "sent": 171,
+              "signal": {
+                "available_bytes_per_second": 500000,
+                "capacity_bytes_per_second": 500000,
+                "node": 12,
+                "queue_us": 527
+              },
+              "timeouts": 136
+            }
+          ]
+        ]
+      },
+      {
+        "mode": "full",
+        "fault": true,
+        "restored": true,
+        "delivered": 1800,
+        "elapsed_us": 3015486,
+        "retransmissions": 23,
+        "short_ack_max_us": 3633,
+        "short_ack_p99_upper_us": 2559,
+        "trimmed": 0,
+        "paths": [
+          [
+            {
+              "acknowledged": 182,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953343924702,
+              "last_feedback_us": 953346139349,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 2033,
+              "rtt_us": 2017,
+              "sent": 183,
+              "signal": {
+                "available_bytes_per_second": 99937000,
+                "capacity_bytes_per_second": 100000000,
+                "node": 1,
+                "queue_us": 19
+              },
+              "timeouts": 1
+            },
+            {
+              "acknowledged": 718,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953346213269,
+              "last_feedback_us": 953346213269,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 2035,
+              "rtt_us": 142,
+              "sent": 724,
+              "signal": {
+                "available_bytes_per_second": 0,
+                "capacity_bytes_per_second": 500000,
+                "node": 12,
+                "queue_us": 191
+              },
+              "timeouts": 6
+            }
+          ],
+          [
+            {
+              "acknowledged": 143,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953346218109,
+              "last_feedback_us": 953346218109,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 2031,
+              "rtt_us": 6635,
+              "sent": 148,
+              "signal": {
+                "available_bytes_per_second": 125000,
+                "capacity_bytes_per_second": 125000,
+                "node": 11,
+                "queue_us": 8339
+              },
+              "timeouts": 5
+            },
+            {
+              "acknowledged": 757,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 953346229215,
+              "last_feedback_us": 953346229215,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 2032,
+              "rtt_us": 3999,
+              "sent": 768,
+              "signal": {
+                "available_bytes_per_second": 500000,
+                "capacity_bytes_per_second": 500000,
+                "node": 12,
+                "queue_us": 5141
+              },
+              "timeouts": 11
+            }
+          ]
+        ]
+      }
+    ],
+    "verification": {
+      "status": "passed",
+      "runs": 8,
+      "binary_sha256": "69c7acdf20bad0a631575fdcfcbca29493f5138eb2b2802ee7483acb61271331"
+    }
+  },
+  "vm": {
+    "measurements": [
+      {
+        "mode": "baseline",
+        "fault": false,
+        "delivered": 1800,
+        "elapsed_us": 3004168,
+        "retransmissions": 911,
+        "short_ack_max_us": 14146,
+        "short_ack_p99_upper_us": 13311,
+        "trimmed": 0,
+        "paths": [
+          [
+            {
+              "acknowledged": 891,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 71304785,
+              "last_feedback_us": 71304785,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 1889,
+              "rtt_us": 5723,
+              "sent": 900,
+              "signal": {
+                "available_bytes_per_second": 0,
+                "capacity_bytes_per_second": 0,
+                "node": 0,
+                "queue_us": 0
+              },
+              "timeouts": 12
+            },
+            {
+              "acknowledged": 9,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 68361995,
+              "last_feedback_us": 71223485,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 525,
+              "rtt_us": 746,
+              "sent": 12,
+              "signal": {
+                "available_bytes_per_second": 0,
+                "capacity_bytes_per_second": 0,
+                "node": 0,
+                "queue_us": 0
+              },
+              "timeouts": 0
+            }
+          ],
+          [
+            {
+              "acknowledged": 2,
+              "disabled_until_us": 71402817,
+              "in_flight_bytes": 0,
+              "last_data_us": 68319547,
+              "last_feedback_us": 71225864,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 2901,
+              "rtt_us": 5867,
+              "sent": 901,
+              "signal": {
+                "available_bytes_per_second": 0,
+                "capacity_bytes_per_second": 0,
+                "node": 0,
+                "queue_us": 0
+              },
+              "timeouts": 898
+            },
+            {
+              "acknowledged": 898,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 71303678,
+              "last_feedback_us": 71303678,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 878,
+              "rtt_us": 851,
+              "sent": 898,
+              "signal": {
+                "available_bytes_per_second": 0,
+                "capacity_bytes_per_second": 0,
+                "node": 0,
+                "queue_us": 0
+              },
+              "timeouts": 1
+            }
+          ]
+        ]
+      },
+      {
+        "mode": "full",
+        "fault": false,
+        "delivered": 1800,
+        "elapsed_us": 3000807,
+        "retransmissions": 34,
+        "short_ack_max_us": 6872,
+        "short_ack_p99_upper_us": 3327,
+        "trimmed": 0,
+        "paths": [
+          [
+            {
+              "acknowledged": 223,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 97947514,
+              "last_feedback_us": 97947514,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 873,
+              "rtt_us": 917,
+              "sent": 233,
+              "signal": {
+                "available_bytes_per_second": 100000000,
+                "capacity_bytes_per_second": 100000000,
+                "node": 1,
+                "queue_us": 13
+              },
+              "timeouts": 10
+            },
+            {
+              "acknowledged": 677,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 98004020,
+              "last_feedback_us": 98004020,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 874,
+              "rtt_us": 854,
+              "sent": 679,
+              "signal": {
+                "available_bytes_per_second": 99337000,
+                "capacity_bytes_per_second": 100000000,
+                "node": 1,
+                "queue_us": 11
+              },
+              "timeouts": 2
+            }
+          ],
+          [
+            {
+              "acknowledged": 20,
+              "disabled_until_us": 98069363,
+              "in_flight_bytes": 0,
+              "last_data_us": 97964044,
+              "last_feedback_us": 97964044,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 741,
+              "rtt_us": 1076,
+              "sent": 37,
+              "signal": {
+                "available_bytes_per_second": 125000,
+                "capacity_bytes_per_second": 125000,
+                "node": 11,
+                "queue_us": 2
+              },
+              "timeouts": 18
+            },
+            {
+              "acknowledged": 880,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 98004424,
+              "last_feedback_us": 98004424,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 865,
+              "rtt_us": 1673,
+              "sent": 885,
+              "signal": {
+                "available_bytes_per_second": 100000000,
+                "capacity_bytes_per_second": 100000000,
+                "node": 1,
+                "queue_us": 15
+              },
+              "timeouts": 4
+            }
+          ]
+        ]
+      },
+      {
+        "mode": "trim-pressure",
+        "fault": false,
+        "delivered": 1000,
+        "elapsed_us": 6309492,
+        "retransmissions": 2245,
+        "short_ack_max_us": 2461377,
+        "short_ack_p99_upper_us": 2359295,
+        "trimmed": 2222,
+        "paths": [
+          [
+            {
+              "acknowledged": 1000,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 128593558,
+              "last_feedback_us": 128593558,
+              "nacks": 2222,
+              "path": 1,
+              "probe_rtt_us": 516,
+              "rtt_us": 46380,
+              "sent": 3245,
+              "signal": {
+                "available_bytes_per_second": 125000,
+                "capacity_bytes_per_second": 125000,
+                "node": 11,
+                "queue_us": 48146
+              },
+              "timeouts": 23
+            }
+          ],
+          [
+            {
+              "acknowledged": 0,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 0,
+              "last_feedback_us": 0,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 0,
+              "rtt_us": 0,
+              "sent": 0,
+              "signal": {
+                "available_bytes_per_second": 0,
+                "capacity_bytes_per_second": 0,
+                "node": 0,
+                "queue_us": 0
+              },
+              "timeouts": 0
+            }
+          ]
+        ]
+      },
+      {
+        "mode": "full",
+        "fault": true,
+        "delivered": 1800,
+        "elapsed_us": 11113957,
+        "retransmissions": 261,
+        "short_ack_max_us": 59365,
+        "short_ack_p99_upper_us": 49151,
+        "trimmed": 0,
+        "paths": [
+          [
+            {
+              "acknowledged": 877,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 151483429,
+              "last_feedback_us": 159552644,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 10979,
+              "rtt_us": 6422,
+              "sent": 900,
+              "signal": {
+                "available_bytes_per_second": 0,
+                "capacity_bytes_per_second": 125000,
+                "node": 11,
+                "queue_us": 1339
+              },
+              "timeouts": 27
+            },
+            {
+              "acknowledged": 23,
+              "disabled_until_us": 151568806,
+              "in_flight_bytes": 0,
+              "last_data_us": 148599945,
+              "last_feedback_us": 148889410,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 1267,
+              "rtt_us": 931,
+              "sent": 134,
+              "signal": {
+                "available_bytes_per_second": 99937000,
+                "capacity_bytes_per_second": 100000000,
+                "node": 1,
+                "queue_us": 36
+              },
+              "timeouts": 107
+            }
+          ],
+          [
+            {
+              "acknowledged": 773,
+              "disabled_until_us": 0,
+              "in_flight_bytes": 0,
+              "last_data_us": 159595498,
+              "last_feedback_us": 159595498,
+              "nacks": 0,
+              "path": 1,
+              "probe_rtt_us": 11159,
+              "rtt_us": 19200,
+              "sent": 775,
+              "signal": {
+                "available_bytes_per_second": 125000,
+                "capacity_bytes_per_second": 125000,
+                "node": 11,
+                "queue_us": 20341
+              },
+              "timeouts": 5
+            },
+            {
+              "acknowledged": 127,
+              "disabled_until_us": 159619490,
+              "in_flight_bytes": 0,
+              "last_data_us": 148912729,
+              "last_feedback_us": 148912729,
+              "nacks": 0,
+              "path": 2,
+              "probe_rtt_us": 1456,
+              "rtt_us": 824,
+              "sent": 252,
+              "signal": {
+                "available_bytes_per_second": 100000000,
+                "capacity_bytes_per_second": 100000000,
+                "node": 1,
+                "queue_us": 14
+              },
+              "timeouts": 122
+            }
+          ]
+        ]
+      }
+    ],
+    "verification": {
+      "status": "passed",
+      "boot_ids": [
+        "f9a9273c-4dbd-4b54-9e19-405df3b69023",
+        "efee932e-60f4-46f8-808e-3396acc88214",
+        "3e23d7db-d109-424d-895c-c2b6d95fe211",
+        "8f586a2e-d9dc-46d6-9043-236643527e6f"
+      ],
+      "links": [
+        {
+          "ifindex": 3,
+          "ifname": "a1",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "mtu": 1500,
+          "qdisc": "fq_codel",
+          "operstate": "UP",
+          "group": "default",
+          "txqlen": 1000,
+          "link_type": "ether",
+          "address": "02:88:b5:01:00:01",
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "altnames": [
+            "enp0s4"
+          ],
+          "addr_info": []
+        },
+        {
+          "ifindex": 4,
+          "ifname": "a2",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "mtu": 1500,
+          "qdisc": "fq_codel",
+          "operstate": "UP",
+          "group": "default",
+          "txqlen": 1000,
+          "link_type": "ether",
+          "address": "02:88:b5:01:00:05",
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "altnames": [
+            "enp0s5"
+          ],
+          "addr_info": []
+        },
+        {
+          "ifindex": 3,
+          "ifname": "b1",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "mtu": 1500,
+          "qdisc": "fq_codel",
+          "operstate": "UP",
+          "group": "default",
+          "txqlen": 1000,
+          "link_type": "ether",
+          "address": "02:88:b5:01:00:04",
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "altnames": [
+            "enp0s4"
+          ],
+          "addr_info": []
+        },
+        {
+          "ifindex": 4,
+          "ifname": "b2",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "mtu": 1500,
+          "qdisc": "fq_codel",
+          "operstate": "UP",
+          "group": "default",
+          "txqlen": 1000,
+          "link_type": "ether",
+          "address": "02:88:b5:01:00:08",
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "altnames": [
+            "enp0s5"
+          ],
+          "addr_info": []
+        },
+        {
+          "ifindex": 3,
+          "ifname": "r1a",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "mtu": 1500,
+          "qdisc": "fq_codel",
+          "operstate": "UP",
+          "group": "default",
+          "txqlen": 1000,
+          "link_type": "ether",
+          "address": "02:88:b5:01:00:02",
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "altnames": [
+            "enp0s4"
+          ],
+          "addr_info": []
+        },
+        {
+          "ifindex": 4,
+          "ifname": "r1b",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "mtu": 1500,
+          "qdisc": "fq_codel",
+          "operstate": "UP",
+          "group": "default",
+          "txqlen": 1000,
+          "link_type": "ether",
+          "address": "02:88:b5:01:00:03",
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "altnames": [
+            "enp0s5"
+          ],
+          "addr_info": []
+        },
+        {
+          "ifindex": 3,
+          "ifname": "r2a",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "mtu": 1500,
+          "qdisc": "fq_codel",
+          "operstate": "UP",
+          "group": "default",
+          "txqlen": 1000,
+          "link_type": "ether",
+          "address": "02:88:b5:01:00:06",
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "altnames": [
+            "enp0s4"
+          ],
+          "addr_info": []
+        },
+        {
+          "ifindex": 4,
+          "ifname": "r2b",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "mtu": 1500,
+          "qdisc": "fq_codel",
+          "operstate": "UP",
+          "group": "default",
+          "txqlen": 1000,
+          "link_type": "ether",
+          "address": "02:88:b5:01:00:07",
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "altnames": [
+            "enp0s5"
+          ],
+          "addr_info": []
+        }
+      ],
+      "runs": 4,
+      "image_sha256": "0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe",
+      "binary_sha256": "69c7acdf20bad0a631575fdcfcbca29493f5138eb2b2802ee7483acb61271331",
+      "topology": "four KVM guests, two routers, four isolated point-to-point QEMU socket links"
+    }
+  }
+}

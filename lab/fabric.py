@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import time
 
+from artifacts import restore_ownership
 from processes import wait_ready, stop_processes
 from topology import configure, configure_clocks, create_links, remove_links, command
 
@@ -130,6 +131,12 @@ def execute(binary, directory, *, mode, fault, restore=False):
             raise RuntimeError("複数経路を使用していません")
         if mode == "trim-pressure" and measurement["trimmed"] == 0:
             raise RuntimeError("trimmingが発生していません")
+        if restore:
+            fault_at = json.loads((directory / "fault.json").read_text())["sender_observed_us"]
+            recovered = any(channel["fabric"]["paths"][1]["last_data_us"] > fault_at + 500_000
+                            for channel in reports["a"]["reliable_benchmark"]["channels"])
+            if not recovered:
+                raise RuntimeError("復旧した経路でのACKを確認できませんでした")
         return measurement
     finally:
         stop_processes(processes)
@@ -143,6 +150,13 @@ def main():
     parser.add_argument("--binary", required=True)
     parser.add_argument("--directory", type=Path, required=True)
     options = parser.parse_args()
+    try:
+        run_suite(options)
+    finally:
+        restore_ownership(options.directory)
+
+
+def run_suite(options):
     measurements = []
     for mode, fault, restore in [(mode, False, False) for mode in MODES] + [("full", True, False), ("full", True, True)]:
         measurement = execute(options.binary, options.directory / (mode + ("-recovery" if restore else "-failure" if fault else "")), mode=mode, fault=fault, restore=restore)

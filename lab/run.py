@@ -3,13 +3,13 @@ import argparse
 from dataclasses import asdict
 import hashlib
 import json
-import os
 from pathlib import Path
 import platform
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+from artifacts import restore_ownership
 from capture import Capture
 from processes import wait_ready, stop_processes
 from scenarios import SCENARIOS
@@ -191,9 +191,7 @@ def main():
                         "binary_sha256":binary_sha256}
         (arguments.directory / "verification.json").write_text(json.dumps(verification, indent=2) + "\n")
     finally:
-        owner = (int(os.environ.get("L3_OWNER_UID", "0")), int(os.environ.get("L3_OWNER_GID", "0")))
-        for path in [*arguments.directory.rglob("*"), arguments.directory]:
-            os.chown(path, *owner, follow_symlinks=False)
+        restore_ownership(arguments.directory)
 
 
 if __name__ == "__main__":
