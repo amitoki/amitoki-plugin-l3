@@ -12,6 +12,8 @@ pub const MAX_BYTES_PER_SECOND: u64 = 100_000_000_000;
 pub struct Link {
     pub interface: String,
     pub peer_mac: String,
+    #[serde(default)]
+    pub bytes_per_second: Option<u64>,
 }
 
 #[derive(Deserialize)]
@@ -32,6 +34,10 @@ pub struct Config {
     pub bytes_per_second: u64,
     #[serde(default)]
     pub clock: ClockSettings,
+    #[serde(default)]
+    pub fabric: crate::fabric::Settings,
+    #[serde(default)]
+    pub observation: Option<std::path::PathBuf>,
 }
 
 impl Config {
@@ -43,6 +49,10 @@ impl Config {
 
     pub fn validate(&self) -> Result<(), &'static str> {
         self.clock.validate()?;
+        self.fabric.validate()?;
+        if self.fabric.trimming && self.scheduler != Scheduling::Priority {
+            return Err("trimmingにはpriority schedulerが必要です");
+        }
         if self.node == 0
             || self.links.is_empty()
             || self.links.len() > MAX_LINKS
@@ -59,6 +69,7 @@ impl Config {
                 || !link.interface.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"-_.".contains(&byte))
                 || !names.insert(&link.interface)
                 || parse_mac(&link.peer_mac).is_err()
+                || link.bytes_per_second.is_some_and(|rate| rate == 0 || rate > MAX_BYTES_PER_SECOND)
             {
                 return Err("interfaceまたはpeer_macが不正です");
             }

@@ -62,6 +62,7 @@ pub struct ReceiverMetrics {
     pub expired_channels: u64,
     pub abandoned_messages: u64,
     pub resets: u64,
+    pub trim_notifications: u64,
     pub peak_buffered: usize,
 }
 
@@ -123,7 +124,7 @@ impl Receiver {
         if packet.kind == Kind::ReliableOpen {
             return self.open(packet, metadata, now);
         }
-        if packet.kind != Kind::ReliableData {
+        if !matches!(packet.kind, Kind::ReliableData | Kind::ReliableTrim) {
             return None;
         }
         let Some(channel) = self.channels.get_mut(&key) else {
@@ -137,6 +138,13 @@ impl Receiver {
             return None;
         }
         channel.last_seen = now;
+        if packet.kind == Kind::ReliableTrim {
+            self.metrics.trim_notifications += 1;
+            let mut nack = packet.response(Kind::ReliableNack);
+            nack.credit = 0;
+            nack.payload = packet.payload.clone();
+            return Some(nack);
+        }
         let body = &packet.payload[PREFIX_SIZE..];
         let hash = fingerprint(body);
         if packet.message < channel.next {

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 // RFC 9542のLocal Experimental。magicで同じ番号を使う別の実験と区別する。
 pub const ETHER_TYPE: u16 = 0x88b5;
-pub const HEADER_SIZE: usize = 64;
+pub const HEADER_SIZE: usize = 96;
 pub const ETHERNET_HEADER_SIZE: usize = 14;
 // 標準MTU 1500に収め、試作ではフラグメントを扱わない。
 pub const MAX_PAYLOAD: usize = 1400;
@@ -13,7 +13,9 @@ pub const MAX_LIFETIME_US: u64 = 1_000_000;
 pub const INITIAL_HOPS: u8 = 16;
 pub const REPLICA: u8 = 1;
 const MAGIC: &[u8; 4] = b"AMTK";
-const VERSION: u8 = 1;
+const VERSION: u8 = 2;
+pub const TELEMETRY: u8 = 2;
+pub const LOCAL_LIFETIME: u8 = 4;
 const CHECKSUM_OFFSET: usize = 62;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -45,6 +47,8 @@ pub enum Kind {
     ReliableData = 9,
     ReliableAck = 10,
     ReliableReset = 11,
+    ReliableTrim = 12,
+    ReliableNack = 13,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,6 +66,8 @@ pub struct Packet {
     pub path: u8,
     pub flags: u8,
     pub payload: Vec<u8>,
+    pub sent_at: u64,
+    pub signal: crate::fabric::Signal,
 }
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -100,9 +106,14 @@ impl Packet {
         bytes[56..58].copy_from_slice(&(self.payload.len() as u16).to_be_bytes());
         bytes[58] = self.path;
         bytes[59] = self.flags;
+        bytes[64..72].copy_from_slice(&self.sent_at.to_be_bytes());
+        bytes[72..80].copy_from_slice(&self.signal.available_bytes_per_second.to_be_bytes());
+        bytes[80..84].copy_from_slice(&self.signal.node.to_be_bytes());
+        bytes[84..88].copy_from_slice(&self.signal.queue_us.to_be_bytes());
+        bytes[88..96].copy_from_slice(&self.signal.capacity_bytes_per_second.to_be_bytes());
         bytes[HEADER_SIZE..].copy_from_slice(&self.payload);
         let checksum = checksum(bytes);
-        bytes[CHECKSUM_OFFSET..HEADER_SIZE].copy_from_slice(&checksum.to_be_bytes());
+        bytes[CHECKSUM_OFFSET..CHECKSUM_OFFSET + 2].copy_from_slice(&checksum.to_be_bytes());
         Ok(length)
     }
 
@@ -128,6 +139,8 @@ impl Packet {
                 9 => Kind::ReliableData,
                 10 => Kind::ReliableAck,
                 11 => Kind::ReliableReset,
+                12 => Kind::ReliableTrim,
+                13 => Kind::ReliableNack,
                 _ => return Err(PacketError("kind")),
             },
             class: match bytes[6] {
@@ -146,6 +159,13 @@ impl Packet {
             path: bytes[58],
             flags: bytes[59],
             payload: bytes[HEADER_SIZE..].to_vec(),
+            sent_at: integer(64),
+            signal: crate::fabric::Signal {
+                available_bytes_per_second: integer(72),
+                node: u32::from_be_bytes(bytes[80..84].try_into().expect("検証済みヘッダ")),
+                queue_us: u32::from_be_bytes(bytes[84..88].try_into().expect("検証済みヘッダ")),
+                capacity_bytes_per_second: integer(88),
+            },
         };
         packet.validate()?;
         Ok(packet)
@@ -159,12 +179,18 @@ impl Packet {
             || self.clock_domain == 0
             || self.path == 0
             || self.hops == 0
-            || self.flags & !REPLICA != 0
+            || self.flags & !(REPLICA | TELEMETRY | LOCAL_LIFETIME) != 0
         {
             return Err(PacketError("識別子/経路/hop/flags"));
         }
-        if self.payload.len() > MAX_PAYLOAD || (!self.is_data() && self.flags != 0) {
+        if self.payload.len() > MAX_PAYLOAD || (!self.is_data() && self.flags & REPLICA != 0) {
             return Err(PacketError("payload/flags"));
+        }
+        if !self.signal.valid() || (!self.is_reliable() && (self.sent_at != 0 || self.signal.node != 0 || self.flags & (TELEMETRY | LOCAL_LIFETIME) != 0)) {
+            return Err(PacketError("経路信号/送信時刻/flags"));
+        }
+        if self.flags & LOCAL_LIFETIME != 0 && self.expires != 0 {
+            return Err(PacketError("ローカル滞留制限の絶対期限"));
         }
         if self.is_data() && self.class == Class::Short && self.payload.len() > MAX_SHORT_PAYLOAD {
             return Err(PacketError("short payload長"));
@@ -195,7 +221,11 @@ impl Packet {
 
     /// 受付済みの事実は時計精度に依存しない。session/epochは配送層で照合する。
     pub fn is_reliable_response(&self) -> bool {
-        matches!(self.kind, Kind::ReliableReady | Kind::ReliableAck | Kind::ReliableReset)
+        matches!(self.kind, Kind::ReliableReady | Kind::ReliableAck | Kind::ReliableReset | Kind::ReliableNack)
+    }
+
+    pub fn has_local_lifetime(&self) -> bool {
+        self.is_reliable_response() || (self.is_reliable() && self.flags & LOCAL_LIFETIME != 0)
     }
 
     pub fn is_data(&self) -> bool {
@@ -205,7 +235,7 @@ impl Packet {
     pub fn is_reliable(&self) -> bool {
         matches!(
             self.kind,
-            Kind::ReliableOpen | Kind::ReliableReady | Kind::ReliableData | Kind::ReliableAck | Kind::ReliableReset
+            Kind::ReliableOpen | Kind::ReliableReady | Kind::ReliableData | Kind::ReliableAck | Kind::ReliableReset | Kind::ReliableTrim | Kind::ReliableNack
         )
     }
 
@@ -220,8 +250,10 @@ impl Packet {
             source: self.destination,
             destination: self.source,
             hops: INITIAL_HOPS,
-            flags: 0,
+            flags: self.flags & (LOCAL_LIFETIME | TELEMETRY),
             payload: Vec::new(),
+            sent_at: self.sent_at,
+            signal: self.signal,
             session: self.session,
             message: self.message,
             expires: self.expires,

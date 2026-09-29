@@ -98,6 +98,8 @@ impl Synchronization {
                 credit: 0,
                 path: *path,
                 flags: 0,
+                sent_at: 0,
+                signal: Default::default(),
                 payload: now.to_be_bytes().to_vec(),
             });
             self.requests_sent += 1;

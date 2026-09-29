@@ -1,7 +1,7 @@
 use crate::packet::{Kind, Packet, PacketError};
 use serde::{Deserialize, Serialize};
 
-// 既存64Bヘッダを保ち、信頼性配送だけ本文先頭にchannelと受信世代を載せる。
+// 信頼性配送の本文先頭にchannelと受信世代を載せる。
 pub const PREFIX_SIZE: usize = 16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, clap::ValueEnum)]
@@ -56,6 +56,7 @@ pub(crate) fn validate(packet: &Packet) -> Result<(), PacketError> {
     let valid = match packet.kind {
         Kind::ReliableData => length > PREFIX_SIZE && packet.credit == 0 && packet.message < u64::MAX,
         Kind::ReliableAck => length == PREFIX_SIZE + 8 && packet.credit > 0,
+        Kind::ReliableTrim | Kind::ReliableNack => length == PREFIX_SIZE + 8 && packet.credit == 0,
         Kind::ReliableReady => length == PREFIX_SIZE && (1..=super::MAX_WINDOW as u64).contains(&packet.credit),
         Kind::ReliableOpen | Kind::ReliableReset => length == PREFIX_SIZE && packet.credit == 0,
         _ => false,

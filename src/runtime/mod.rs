@@ -1,4 +1,5 @@
 mod endpoint;
+mod observation;
 pub use endpoint::{Endpoint, MessageSink, Submission};
 mod client;
 mod node;
@@ -25,6 +26,8 @@ use synchronization::Synchronization;
 // 一つの受信キューだけで他の経路と期限処理を飢餓させない。
 const RECEIVE_BURST: usize = 32;
 const TRANSMIT_BURST: usize = 8;
+// downしたNICのエラーをbusy loopで読み続けず、復旧は10msごとに検出する。
+const LINK_RECHECK_US: u64 = 10_000;
 
 fn random_session() -> u64 {
     u64::from_be_bytes(uuid::Uuid::new_v4().as_bytes()[..8].try_into().expect("UUIDの先頭8バイト")).clamp(1, u64::MAX - 1)
@@ -42,19 +45,25 @@ pub struct NetworkMetrics {
     pub no_route: u64,
     pub hop_limit: u64,
     pub send_errors: u64,
+    pub receive_errors: u64,
     pub unsynchronized: u64,
     pub sync_sent: u64,
+    pub trimmed: u64,
+    pub trim_dropped: u64,
 }
 
 pub struct Network {
     pub node: u32,
     links: Vec<Ethernet>,
     names: Vec<String>,
+    receive_after: Vec<u64>,
     routes: HashMap<(u32, u8), usize>,
     queues: Vec<Scheduler>,
     pub metrics: NetworkMetrics,
     pub clock: Clock,
     synchronization: Synchronization,
+    fabric: crate::fabric::Settings,
+    observer: observation::Observer,
 }
 
 impl Network {
@@ -68,7 +77,9 @@ impl Network {
         for link in config.links {
             links.push(Ethernet::open(&link)?);
             names.push(link.interface);
-            queues.push(Scheduler::new(config.scheduler, config.bytes_per_second, clock.now()));
+            queues.push(
+                Scheduler::new(config.scheduler, link.bytes_per_second.unwrap_or(config.bytes_per_second), clock.now()).with_observation(config.node, config.fabric.telemetry),
+            );
         }
         let routes = config
             .routes
@@ -82,6 +93,9 @@ impl Network {
             .collect();
         Ok(Self {
             node: config.node,
+            fabric: config.fabric,
+            observer: observation::Observer::new(config.observation),
+            receive_after: vec![0; links.len()],
             links,
             names,
             routes,
@@ -98,9 +112,21 @@ impl Network {
         }
         let mut packets = Vec::new();
         let mut synchronization_packets = Vec::new();
-        for link in &self.links {
+        for (index, link) in self.links.iter().enumerate() {
+            if self.clock.now() < self.receive_after[index] {
+                continue;
+            }
             for _ in 0..RECEIVE_BURST {
-                let Some(received) = link.receive()? else {
+                let received = match link.receive() {
+                    Ok(received) => received,
+                    Err(error) if matches!(error.raw_os_error(), Some(libc::ENETDOWN | libc::ENETUNREACH | libc::EHOSTUNREACH)) => {
+                        self.metrics.receive_errors += 1;
+                        self.receive_after[index] = self.clock.now().saturating_add(LINK_RECHECK_US);
+                        break;
+                    },
+                    Err(error) => return Err(error),
+                };
+                let Some(received) = received else {
                     break;
                 };
                 let packet = match received {
@@ -136,6 +162,19 @@ impl Network {
         self.synchronization.reading(self.clock.now())
     }
 
+    fn reliable_time(&self) -> Option<Reading> {
+        self.time().or_else(|| self.fabric.clock_independent.then(|| self.synchronization.domain().map(|domain| Reading::exact(self.clock.now(), domain))).flatten())
+    }
+
+    fn observe(&mut self, channels: impl FnOnce() -> serde_json::Value) {
+        let now = self.clock.now();
+        if self.observer.due(now) {
+            let mut report = self.report();
+            report["channels"] = channels();
+            self.observer.write(now, report);
+        }
+    }
+
     fn enqueue(&mut self, packet: Packet) {
         self.try_enqueue(packet);
     }
@@ -148,7 +187,7 @@ impl Network {
         let now = self.clock.now();
         let expires = if packet.is_sync() {
             now + SYNC_TIMEOUT_US
-        } else if packet.is_reliable_response() {
+        } else if packet.has_local_lifetime() {
             if !accept_response(&mut self.metrics, &packet, self.synchronization.domain()) {
                 return false;
             }
@@ -173,7 +212,22 @@ impl Network {
             return;
         }
         packet.hops -= 1;
-        self.enqueue(packet);
+        let candidate = (self.fabric.trimming && packet.kind == crate::packet::Kind::ReliableData).then(|| packet.clone());
+        if self.try_enqueue(packet) {
+            return;
+        }
+        let Some(candidate) = candidate else { return };
+        let Some(index) = self.routes.get(&(candidate.destination, candidate.path)) else {
+            return;
+        };
+        let signal = self.queues[*index].congestion_signal(self.queues[*index].backlog_us());
+        if let Some(header) = crate::fabric::trim(candidate, signal) {
+            if self.try_enqueue(header) {
+                self.metrics.trimmed += 1;
+            } else {
+                self.metrics.trim_dropped += 1;
+            }
+        }
     }
 
     fn flush(&mut self) -> io::Result<()> {
@@ -201,7 +255,10 @@ impl Network {
                         self.metrics.wire_bytes += packet.wire_size() as u64;
                         self.metrics.sync_sent += u64::from(packet.is_sync());
                     },
-                    Err(error) if matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted) || error.raw_os_error() == Some(libc::ENOBUFS) => {
+                    Err(error)
+                        if matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted)
+                            || matches!(error.raw_os_error(), Some(libc::ENOBUFS | libc::ENETDOWN | libc::ENETUNREACH | libc::EHOSTUNREACH)) =>
+                    {
                         // qdiscの破棄や一時的な送信バッファ不足はパケット損失として扱う。
                         self.metrics.send_errors += 1;
                     },
@@ -223,7 +280,8 @@ impl Network {
             std::hint::spin_loop();
             return Ok(());
         }
-        let mut descriptors: Vec<_> = self.links.iter().map(Ethernet::poll_descriptor).collect();
+        let mut descriptors: Vec<_> =
+            self.links.iter().enumerate().filter(|(index, _)| self.receive_after[*index] <= self.clock.now()).map(|(_, link)| link.poll_descriptor()).collect();
         let milliseconds = (duration / 1000).min(10) as i32;
         // SAFETY: descriptorsは初期化済みで、渡した個数分の領域がある。
         let status = unsafe { libc::poll(descriptors.as_mut_ptr(), descriptors.len() as libc::nfds_t, milliseconds) };
@@ -237,6 +295,9 @@ impl Network {
         let queues: HashMap<_, _> = self.names.iter().zip(&self.queues).map(|(name, queue)| (name, &queue.metrics)).collect();
         serde_json::json!({
             "node": self.node,
+            "observed_us": self.clock.now(),
+            "fabric": self.fabric,
+            "observation_errors": self.observer.errors,
             "clock_domain": self.clock.domain,
             "clock_simulation": self.clock.simulation(),
             "clock_sync": self.synchronization.report(self.clock.now()),
@@ -254,7 +315,7 @@ struct PacketTime {
 
 fn accept_packet(metrics: &mut NetworkMetrics, packet: &Packet, time: PacketTime) -> bool {
     let PacketTime { reading, domain } = time;
-    if packet.is_reliable_response() {
+    if packet.has_local_lifetime() {
         accept_response(metrics, packet, domain)
     } else {
         accept_data(metrics, packet, reading)

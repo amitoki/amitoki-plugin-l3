@@ -1,7 +1,9 @@
+use super::attempts::Attempts;
 use super::retry::{RetryTiming, INITIAL_RETRY_US, MAX_RETRY_US};
 use super::{wire::Metadata, Ordering, ATTEMPT_LIFETIME_US, DEFAULT_PENDING, DEFAULT_TIMEOUT_US, MAX_WINDOW, PREFIX_SIZE};
+use crate::fabric::{Acknowledgement, Controller, Settings, Transmission, MAX_PATHS};
 use crate::{
-    packet::{fingerprint, Class, Kind, Packet, INITIAL_HOPS, MAX_PAYLOAD, MAX_SHORT_PAYLOAD, REPLICA},
+    packet::{fingerprint, Class, Kind, Packet, INITIAL_HOPS, LOCAL_LIFETIME, MAX_PAYLOAD, MAX_SHORT_PAYLOAD, REPLICA, TELEMETRY},
     sync::Reading,
     tokens::TokenBucket,
 };
@@ -23,6 +25,7 @@ pub struct ChannelOptions {
     pub paths: Vec<u8>,
     pub pending_limit: usize,
     pub timeout_us: u64,
+    pub fabric: Settings,
 }
 
 impl ChannelOptions {
@@ -37,6 +40,7 @@ impl ChannelOptions {
             paths: vec![1],
             pending_limit: DEFAULT_PENDING,
             timeout_us: DEFAULT_TIMEOUT_US,
+            fabric: Settings::default(),
         }
     }
 }
@@ -70,6 +74,13 @@ struct Pending {
     retry_interval: u64,
     attempts: u64,
     last_sent: u64,
+    transmissions: Attempts,
+}
+
+impl Pending {
+    fn wire_size(&self) -> u64 {
+        (crate::packet::ETHERNET_HEADER_SIZE + crate::packet::HEADER_SIZE + PREFIX_SIZE + self.payload.len()) as u64
+    }
 }
 
 #[derive(Default, Serialize)]
@@ -85,6 +96,7 @@ pub struct SenderMetrics {
     pub retry_timeout_us: u64,
     pub redundant_bytes: u64,
     pub invalid_responses: u64,
+    pub nacks: u64,
     pub peak_pending: usize,
     pub acknowledgement_total_us: u64,
     pub acknowledgement_max_us: u64,
@@ -108,6 +120,9 @@ pub struct Channel {
     probe_at: u64,
     state: ChannelState,
     timing: RetryTiming,
+    fabric: Controller,
+    probes: BTreeMap<u8, u64>,
+    latencies: super::latency::Latency,
     pub metrics: SenderMetrics,
 }
 
@@ -119,9 +134,10 @@ impl Channel {
             || options.session == 0
             || options.channel == 0
             || options.paths.is_empty()
-            || options.paths.len() > 2
+            || options.paths.len() > MAX_PATHS
             || options.paths.contains(&0)
-            || (options.paths.len() == 2 && options.paths[0] == options.paths[1])
+            || (options.paths.iter().collect::<std::collections::BTreeSet<_>>().len() != options.paths.len())
+            || options.fabric.validate().is_err()
             || options.pending_limit == 0
             || options.pending_limit > DEFAULT_PENDING
             || options.timeout_us == 0
@@ -130,6 +146,9 @@ impl Channel {
             return Err("channelの識別子/経路/キュー長/timeoutが範囲外です");
         }
         Ok(Self {
+            fabric: Controller::new(options.fabric, &options.paths),
+            probes: BTreeMap::new(),
+            latencies: Default::default(),
             options,
             pending: BTreeMap::new(),
             next_sequence: 1,
@@ -196,6 +215,7 @@ impl Channel {
                 retry_interval: INITIAL_RETRY_US,
                 attempts: 0,
                 last_sent: 0,
+                transmissions: Attempts::default(),
             },
         );
         self.metrics.submitted += 1;
@@ -224,8 +244,13 @@ impl Channel {
             return;
         }
         self.domain = Some(time.domain);
-        let Some(expires) = time.deadline(now.saturating_add(ATTEMPT_LIFETIME_US)).filter(|deadline| *deadline > time.latest) else {
-            return;
+        let expires = if self.options.fabric.clock_independent {
+            0
+        } else {
+            let Some(expires) = time.deadline(now.saturating_add(ATTEMPT_LIFETIME_US)).filter(|deadline| *deadline > time.latest) else {
+                return;
+            };
+            expires
         };
         let metadata = Metadata {
             channel: self.options.channel,
@@ -244,7 +269,9 @@ impl Channel {
             clock_domain: time.domain,
             credit: 0,
             path: self.options.paths[0],
-            flags: 0,
+            flags: if self.options.fabric.telemetry { TELEMETRY } else { 0 } | if self.options.fabric.clock_independent { LOCAL_LIFETIME } else { 0 },
+            sent_at: now.max(1),
+            signal: Default::default(),
             payload: metadata.encode(&[]),
         };
         let mut accepted = 0;
@@ -253,6 +280,7 @@ impl Channel {
             for path in &self.options.paths {
                 if enqueue(Packet { path: *path, ..template.clone() }) {
                     accepted += 1;
+                    self.probes.insert(*path, template.sent_at);
                     self.probe_at = now.saturating_add(PROBE_INTERVAL_US);
                 }
             }
@@ -264,7 +292,7 @@ impl Channel {
             if accepted >= TRANSMIT_BURST {
                 break;
             }
-            let retry_at = if pending.attempts == 0 {
+            let retry_at = if pending.attempts == 0 || pending.transmissions.fast_retry {
                 pending.retry_at
             } else {
                 pending.last_sent.saturating_add(pending.retry_interval.max(self.timing.timeout()))
@@ -273,23 +301,40 @@ impl Channel {
                 continue;
             }
             let retry = pending.attempts != 0;
+            let fallback = self.options.paths[pending.attempts as usize % self.options.paths.len()];
+            let path = if retry && self.options.fabric.adaptive_paths {
+                self.fabric.select_retry(now, pending.transmissions.last_path.expect("送信済み経路"))
+            } else {
+                self.fabric.select(now, fallback)
+            };
             let packet = Packet {
                 kind: Kind::ReliableData,
                 message: *sequence,
-                path: self.options.paths[pending.attempts as usize % self.options.paths.len()],
-                flags: if retry { REPLICA } else { 0 },
+                path,
+                flags: template.flags | if retry { REPLICA } else { 0 },
                 payload: metadata.encode(&pending.payload),
                 ..template.clone()
             };
             let wire_size = packet.wire_size() as u64;
-            if retry && !retry_budget.can_take(wire_size, now) {
+            if !self.fabric.can_send(now, wire_size, retry) || (retry && !retry_budget.can_take(wire_size, now)) {
                 continue;
             }
+            let path = packet.path;
             if !enqueue(packet) {
                 self.metrics.admission_blocked += 1;
                 break;
             }
             accepted += 1;
+            if retry && !pending.transmissions.fast_retry {
+                self.fabric.loss(pending.transmissions.last_path.expect("送信済み経路"), now, None);
+            }
+            self.fabric.sent(Transmission {
+                path,
+                previous_path: pending.transmissions.last_path,
+                bytes: wire_size,
+                now,
+            });
+            pending.transmissions.record(template.sent_at, path);
             if retry {
                 // enqueueは予算を変更しないため、同じ時刻の予約量を確実に消費できる。
                 let consumed = retry_budget.take(wire_size, now);
@@ -334,10 +379,32 @@ impl Channel {
                     self.metrics.invalid_responses += 1;
                     return None;
                 }
+                if self.probes.get(&packet.path) == Some(&packet.sent_at) && packet.sent_at <= now {
+                    self.fabric.feedback(Acknowledgement {
+                        path: packet.path,
+                        now,
+                        rtt_us: now - packet.sent_at,
+                        bytes: 0,
+                        signal: packet.signal,
+                        data: false,
+                    });
+                }
                 self.epoch = Some(metadata.epoch);
                 self.receive_base = self.receive_base.max(packet.message);
                 self.receive_window = packet.credit;
                 self.state = ChannelState::Active;
+            },
+            Kind::ReliableNack => {
+                let pending = self.pending.get_mut(&packet.message)?;
+                if self.epoch != Some(metadata.epoch) || packet.payload[PREFIX_SIZE..] != pending.fingerprint.to_be_bytes() {
+                    self.metrics.invalid_responses += 1;
+                    return None;
+                }
+                if pending.transmissions.reject_latest(packet.sent_at, packet.path) {
+                    pending.retry_at = now;
+                    self.metrics.nacks += 1;
+                    self.fabric.loss(packet.path, now, Some(packet.signal));
+                }
             },
             Kind::ReliableAck => {
                 if self.epoch != Some(metadata.epoch) || packet.credit > self.highest_sent + 1 {
@@ -349,9 +416,17 @@ impl Channel {
                     self.metrics.invalid_responses += 1;
                     return None;
                 }
-                // 再送した本文へのACKはどの試行の応答か区別できないため推定に使わない。
-                if pending.attempts == 1 {
-                    self.timing.observe(now.saturating_sub(pending.last_sent));
+                // 送信時刻をechoするため、再送が続いても対応する試行のRTTを学習できる。
+                if pending.transmissions.matches(packet.sent_at, packet.path) && packet.sent_at <= now {
+                    self.timing.observe(now - packet.sent_at);
+                    self.fabric.feedback(Acknowledgement {
+                        path: packet.path,
+                        now,
+                        rtt_us: now - packet.sent_at,
+                        bytes: pending.wire_size(),
+                        signal: packet.signal,
+                        data: true,
+                    });
                     self.metrics.rtt_samples = self.timing.samples;
                     self.metrics.smoothed_rtt_us = self.timing.smoothed_us;
                     self.metrics.retry_timeout_us = self.timing.timeout();
@@ -359,8 +434,11 @@ impl Channel {
                 self.receive_base = self.receive_base.max(packet.credit);
                 self.metrics.acknowledged += 1;
                 let elapsed = now.saturating_sub(pending.submitted);
+                self.latencies.record(elapsed);
                 self.metrics.acknowledgement_total_us = self.metrics.acknowledgement_total_us.saturating_add(elapsed);
                 self.metrics.acknowledgement_max_us = self.metrics.acknowledgement_max_us.max(elapsed);
+                let bytes = pending.wire_size();
+                self.fabric.release(pending.transmissions.last_path.expect("送信済み経路"), bytes);
                 self.pending.remove(&packet.message);
                 return Some(packet.message);
             },
@@ -380,8 +458,19 @@ impl Channel {
             && Metadata::decode(packet).is_some_and(|metadata| metadata.channel == self.options.channel && metadata.ordering == self.options.ordering)
     }
 
+    pub fn report(&self) -> serde_json::Value {
+        let mut metrics = serde_json::json!(self.metrics);
+        metrics["acknowledgement_p99_upper_us"] = self.latencies.p99_upper_us().into();
+        serde_json::json!({ "source": self.options.source, "destination": self.options.destination, "channel": self.options.channel, "class": self.options.class, "metrics": metrics, "state": self.state, "fabric": self.fabric.report() })
+    }
+
     fn fail(&mut self, state: ChannelState) {
         self.metrics.unconfirmed += self.pending.len() as u64;
+        for pending in self.pending.values() {
+            if let Some(path) = pending.transmissions.last_path {
+                self.fabric.release(path, pending.wire_size());
+            }
+        }
         self.pending.clear();
         self.state = state;
     }

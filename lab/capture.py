@@ -42,7 +42,7 @@ class Capture:
                         frame = channel.recv(65535)
                         # 端点の受信だけを取得する。各経路にはルーターが1台ある。
                         valid_hops = frame[21] in (15, 16) if frame[19] in (5, 6) else frame[21] == 15
-                        if frame[12:14] != b"\x88\xb5" or frame[14:19] != b"AMTK\x01" or not valid_hops:
+                        if frame[12:14] != b"\x88\xb5" or frame[14:19] != b"AMTK\x02" or not valid_hops:
                             raise RuntimeError("EtherType、独自ヘッダ、hop減算が一致しません")
                         timestamp = time.time_ns()
                         output.write(struct.pack("<IIII", timestamp // 1_000_000_000, (timestamp // 1000) % 1_000_000, len(frame), len(frame)))

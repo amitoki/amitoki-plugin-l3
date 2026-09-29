@@ -1,4 +1,6 @@
 //! ACKは受信キューへの受付を表す。アプリ処理・永続化は保証しない。
+mod attempts;
+mod latency;
 mod receiver;
 mod retry;
 mod sender;

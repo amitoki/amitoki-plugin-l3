@@ -1,5 +1,5 @@
 use crate::{
-    packet::{Class, Packet},
+    packet::{Class, Kind, Packet, TELEMETRY},
     tokens::TokenBucket,
 };
 use serde::{Deserialize, Serialize};
@@ -27,11 +27,13 @@ pub struct QueueMetrics {
     pub dequeued: u64,
     pub scheduled_bytes: u64,
     pub peak: usize,
+    pub max_queue_us: u64,
 }
 
 struct QueuedPacket {
     packet: Packet,
     expires: u64,
+    enqueued: u64,
 }
 
 pub struct Scheduler {
@@ -41,6 +43,9 @@ pub struct Scheduler {
     short_run: usize,
     bandwidth: TokenBucket,
     pub metrics: QueueMetrics,
+    node: u32,
+    capacity: u64,
+    observation: bool,
 }
 
 impl Scheduler {
@@ -48,12 +53,37 @@ impl Scheduler {
         // バーストは最大フレーム1件に抑え、キュー制御の比較を帯域設定に合わせる。
         Self {
             mode,
+            node: 0,
+            capacity: bytes_per_second,
+            observation: false,
             packets: VecDeque::new(),
             control_run: 0,
             short_run: 0,
             bandwidth: TokenBucket::new(bytes_per_second, crate::packet::MAX_FRAME as u64, now),
             metrics: QueueMetrics::default(),
         }
+    }
+
+    pub fn with_observation(mut self, node: u32, enabled: bool) -> Self {
+        self.node = node;
+        self.observation = enabled;
+        self
+    }
+
+    pub fn congestion_signal(&self, queue_us: u64) -> crate::fabric::Signal {
+        let queued_bytes: u64 = self.packets.iter().map(|queued| queued.packet.wire_size() as u64).sum();
+        // 目標2ms内に処理できる容量から待機中のバイトを引く。瞬間の推定値でありリンク計測値ではない。
+        const ESTIMATION_WINDOW_US: u64 = 2_000;
+        crate::fabric::Signal {
+            node: self.node,
+            queue_us: queue_us.min(u64::from(u32::MAX)) as u32,
+            available_bytes_per_second: self.capacity.saturating_sub(queued_bytes.saturating_mul(1_000_000) / ESTIMATION_WINDOW_US),
+            capacity_bytes_per_second: self.capacity,
+        }
+    }
+
+    pub fn backlog_us(&self) -> u64 {
+        self.packets.iter().map(|queued| queued.packet.wire_size() as u64).sum::<u64>().saturating_mul(1_000_000) / self.capacity
     }
 
     pub fn enqueue(&mut self, packet: Packet, now: u64) -> bool {
@@ -74,7 +104,7 @@ impl Scheduler {
             self.metrics.full += 1;
             return false;
         }
-        self.packets.push_back(QueuedPacket { packet, expires });
+        self.packets.push_back(QueuedPacket { packet, expires, enqueued: now });
         self.metrics.peak = self.metrics.peak.max(self.packets.len());
         true
     }
@@ -92,7 +122,13 @@ impl Scheduler {
         if !self.bandwidth.take(size, now) {
             return None;
         }
-        let packet = self.packets.remove(index)?.packet;
+        let queued = self.packets.remove(index)?;
+        let delay = now.saturating_sub(queued.enqueued);
+        self.metrics.max_queue_us = self.metrics.max_queue_us.max(delay);
+        let mut packet = queued.packet;
+        if self.observation && packet.flags & TELEMETRY != 0 && matches!(packet.kind, Kind::ReliableOpen | Kind::ReliableData | Kind::ReliableTrim) {
+            packet.signal.observe(self.congestion_signal(delay));
+        }
         match queue_class(&packet) {
             0 => self.control_run += 1,
             1 => {

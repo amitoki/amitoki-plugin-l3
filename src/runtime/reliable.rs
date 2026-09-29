@@ -43,6 +43,7 @@ pub fn run_reliable_benchmark(options: Benchmark, reliable: ReliableOptions) -> 
         channels.push(
             Channel::new(ChannelOptions {
                 channel: index as u32 + 1,
+                fabric: network.fabric,
                 class,
                 ordering: reliable.ordering[index],
                 paths: options.paths.clone(),
@@ -91,12 +92,13 @@ pub fn run_reliable_benchmark(options: Benchmark, reliable: ReliableOptions) -> 
             }
             let tick = SendTick {
                 now: network.clock.now(),
-                time: network.time(),
+                time: network.reliable_time(),
                 retry_budget: &mut retry_budget,
             };
             channel.transmit(tick, |packet| network.try_enqueue(packet));
         }
         network.flush()?;
+        network.observe(|| serde_json::json!(channels.iter().map(Channel::report).collect::<Vec<_>>()));
         if channels.iter().enumerate().all(|(index, channel)| counts[index] == 0 || channel.is_closed() || (generated[index] == counts[index] && channel.pending() == 0)) {
             break;
         }
@@ -114,7 +116,7 @@ pub fn run_reliable_benchmark(options: Benchmark, reliable: ReliableOptions) -> 
         .map(|(index, channel)| {
             serde_json::json!({
                 "channel": index + 1, "ordering": reliable.ordering[index], "state": channel.state(), "offered": counts[index],
-                "unsubmitted": counts[index] - generated[index], "pending": channel.pending(), "backpressure_events": blocked[index], "metrics": channel.metrics
+                "unsubmitted": counts[index] - generated[index], "pending": channel.pending(), "backpressure_events": blocked[index], "metrics": channel.report()["metrics"], "fabric": channel.report()["fabric"]
             })
         })
         .collect();
